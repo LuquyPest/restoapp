@@ -7,7 +7,7 @@ const generateSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
   taxRate: z.number().min(0).max(100).optional(),
-  bonuses: z.record(z.number()).optional(),
+  bonuses: z.record(z.string(), z.number()).optional(),
 })
 
 export async function GET(req: NextRequest) {
