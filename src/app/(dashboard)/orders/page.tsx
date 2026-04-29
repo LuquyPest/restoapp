@@ -10,18 +10,21 @@ export default async function OrdersPage() {
   const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
   if (!restaurant) redirect("/login")
 
-  const [menuItems, partners, employee] = await Promise.all([
+  const [menuItems, partners, employee, employees] = await Promise.all([
     prisma.menuItem.findMany({ where: { restaurantId, isAvailable: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
     prisma.partner.findMany({ where: { restaurantId, isActive: true }, orderBy: { name: "asc" } }),
     prisma.employee.findFirst({ where: { userId: session.user.id } }),
+    role !== "EMPLOYEE"
+      ? prisma.employee.findMany({ where: { restaurantId, isActive: true }, orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } })
+      : Promise.resolve([]),
   ])
 
   const ordersWhere = role === "EMPLOYEE" && employee ? { employeeId: employee.id } : { restaurantId }
   const orders = await prisma.order.findMany({
     where: ordersWhere,
-    include: { employee: true, lines: { include: { menuItem: true } }, partner: true },
+    include: { employee: { select: { id: true, firstName: true, lastName: true } }, lines: { include: { menuItem: true } }, partner: true },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 200,
   })
 
   return (
@@ -31,6 +34,7 @@ export default async function OrdersPage() {
       partners={partners}
       role={role}
       currency={restaurant.currency}
+      employees={employees}
     />
   )
 }
