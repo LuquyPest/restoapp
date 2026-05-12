@@ -1,17 +1,20 @@
 "use client"
-
 import { useState } from "react"
 import { Plus, CheckCircle, Clock, AlertTriangle } from "lucide-react"
-import Modal from "@/components/ui/Modal"
-import { formatCurrency, formatDate } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { formatCurrency, formatDate } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Supplier { id: string; name: string }
-interface Invoice {
-  id: string; reference: string | null; amount: number; dueDate: Date
-  status: string; note: string | null; supplier: Supplier; createdAt: Date
-}
-
+interface Invoice { id: string; reference: string | null; amount: number; dueDate: Date; status: string; note: string | null; supplier: Supplier; createdAt: Date }
 const EMPTY = { supplierId: "", reference: "", amount: "", dueDate: "", note: "" }
 
 export default function InvoicesClient({ invoices, suppliers, currency }: { invoices: Invoice[]; suppliers: Supplier[]; currency: string }) {
@@ -19,18 +22,12 @@ export default function InvoicesClient({ invoices, suppliers, currency }: { invo
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
-
   const fmt = (n: number) => formatCurrency(n, currency)
-
-  const totalPending = invoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + i.amount, 0)
+  const totalPending = invoices.filter(i => i.status !== "PAID").reduce((s, i) => s + i.amount, 0)
 
   async function create() {
     setLoading(true)
-    await fetch("/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }),
-    })
+    await fetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }) })
     setLoading(false); setModal(false); setForm(EMPTY); router.refresh()
   }
 
@@ -39,104 +36,70 @@ export default function InvoicesClient({ invoices, suppliers, currency }: { invo
     router.refresh()
   }
 
-  const statusConfig = {
-    PAID: { label: "Payée", icon: <CheckCircle className="w-3.5 h-3.5 text-green-500" />, class: "badge-success" },
-    PENDING: { label: "En attente", icon: <Clock className="w-3.5 h-3.5 text-amber-500" />, class: "badge-warning" },
-    OVERDUE: { label: "En retard", icon: <AlertTriangle className="w-3.5 h-3.5 text-red-500" />, class: "badge-danger" },
+  const StatusBadge = ({ s }: { s: string }) => {
+    if (s === "PAID") return <Badge variant="success"><CheckCircle className="h-3 w-3" /> Payée</Badge>
+    if (s === "OVERDUE") return <Badge variant="destructive"><AlertTriangle className="h-3 w-3" /> En retard</Badge>
+    return <Badge variant="warning"><Clock className="h-3 w-3" /> En attente</Badge>
   }
 
   return (
-    <div className="space-y-6 animate-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Factures</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-0.5">
-            {invoices.filter((i) => i.status !== "PAID").length} en attente — {fmt(totalPending)} dû
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Factures</h1>
+          <p className="text-sm text-muted-foreground mt-1">{invoices.filter(i => i.status !== "PAID").length} en attente · {fmt(totalPending)} dû</p>
         </div>
-        <button onClick={() => setModal(true)} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Nouvelle facture
-        </button>
+        <Button onClick={() => setModal(true)}><Plus className="h-4 w-4" /> Nouvelle facture</Button>
       </div>
 
-      <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Fournisseur</th>
-              <th>Référence</th>
-              <th>Montant</th>
-              <th>Échéance</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fournisseur</TableHead><TableHead>Référence</TableHead><TableHead>Montant</TableHead><TableHead>Échéance</TableHead><TableHead>Statut</TableHead><TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {invoices.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[var(--text-muted)] py-8">Aucune facture</td></tr>
-            ) : invoices.map((inv) => {
-              const cfg = statusConfig[inv.status as keyof typeof statusConfig] ?? statusConfig.PENDING
-              return (
-                <tr key={inv.id}>
-                  <td className="font-medium">{inv.supplier.name}</td>
-                  <td className="text-[var(--text-muted)]">{inv.reference ?? "—"}</td>
-                  <td className="font-semibold">{fmt(inv.amount)}</td>
-                  <td className={`text-sm ${inv.status === "OVERDUE" ? "text-[var(--danger)] font-medium" : "text-[var(--text-muted)]"}`}>
-                    {formatDate(inv.dueDate)}
-                  </td>
-                  <td>
-                    <div className={`badge ${cfg.class} gap-1`}>
-                      {cfg.icon}
-                      {cfg.label}
-                    </div>
-                  </td>
-                  <td>
-                    {inv.status !== "PAID" && (
-                      <button onClick={() => markPaid(inv.id)} className="text-xs text-brand-500 hover:text-brand-600 font-medium hover:underline transition-colors">
-                        Marquer payée
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Aucune facture</TableCell></TableRow>
+            ) : invoices.map(inv => (
+              <TableRow key={inv.id}>
+                <TableCell className="font-medium">{inv.supplier.name}</TableCell>
+                <TableCell className="text-muted-foreground">{inv.reference ?? "—"}</TableCell>
+                <TableCell className="font-semibold">{fmt(inv.amount)}</TableCell>
+                <TableCell className={inv.status === "OVERDUE" ? "text-destructive font-medium" : "text-muted-foreground"}>{formatDate(inv.dueDate)}</TableCell>
+                <TableCell><StatusBadge s={inv.status} /></TableCell>
+                <TableCell>{inv.status !== "PAID" && <Button variant="ghost" size="sm" className="h-7 text-xs hover:text-primary" onClick={() => markPaid(inv.id)}>Marquer payée</Button>}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Nouvelle facture" size="sm">
-        <div className="space-y-3">
-          <div>
-            <label className="label">Fournisseur</label>
-            <select className="input" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
-              <option value="">Sélectionner</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Référence (optionnel)</label>
-            <input className="input" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Montant</label>
-              <input type="number" step="0.01" min="0" className="input" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+      <Dialog open={modal} onOpenChange={v => !v && setModal(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Nouvelle facture</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Fournisseur</Label>
+              <Select value={form.supplierId} onValueChange={v => setForm({ ...form, supplierId: v })}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-            <div>
-              <label className="label">Échéance</label>
-              <input type="date" className="input" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <div className="space-y-1.5"><Label>Référence</Label><Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>Montant</Label><Input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Échéance</Label><Input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div>
+            </div>
+            <div className="space-y-1.5"><Label>Note</Label><Textarea rows={2} value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} /></div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
+              <Button className="flex-1" onClick={create} disabled={loading || !form.supplierId || !form.amount}>{loading ? "Création..." : "Créer"}</Button>
             </div>
           </div>
-          <div>
-            <label className="label">Note (optionnel)</label>
-            <textarea className="input resize-none" rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button onClick={() => setModal(false)} className="btn-secondary flex-1">Annuler</button>
-            <button onClick={create} disabled={loading || !form.supplierId || !form.amount} className="btn-primary flex-1">{loading ? "Création..." : "Créer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -34,6 +34,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
 
         if (!user || !user.passwordHash) return null
+        // Block SUPERADMIN from using the regular login
+        if (user.role === "SUPERADMIN") return null
 
         const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash)
         if (!isValid) return null

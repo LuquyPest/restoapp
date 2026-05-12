@@ -1,29 +1,34 @@
 "use client"
-
 import { useState } from "react"
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react"
-import Modal from "@/components/ui/Modal"
-import { formatCurrency } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { formatCurrency } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-interface Charge { id: string; name: string; amount: number; isActive: boolean }
-interface Props { charges: Charge[]; currency: string }
+interface Charge { id: string; name: string; amount: number; type: string; isActive: boolean }
+const EMPTY = { name: "", amount: "", type: "DEDUCTIBLE" }
 
-const EMPTY = { name: "", amount: "" }
-
-export default function ChargesClient({ charges, currency }: Props) {
+export default function ChargesClient({ charges, currency }: { charges: Charge[]; currency: string }) {
   const router = useRouter()
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
   const [selected, setSelected] = useState<Charge | null>(null)
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
-
   const fmt = (n: number) => formatCurrency(n, currency)
-  const totalActive = charges.filter(c => c.isActive).reduce((s, c) => s + c.amount, 0)
+
+  const totalDeductible = charges.filter(c => c.isActive && c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
+  const totalNonDeductible = charges.filter(c => c.isActive && c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
 
   async function save() {
     setLoading(true)
-    const payload = { name: form.name, amount: parseFloat(form.amount) }
+    const payload = { name: form.name, amount: parseFloat(form.amount), type: form.type }
     if (modal === "create") await fetch("/api/charges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
     else if (selected) await fetch(`/api/charges/${selected.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
     setLoading(false); setModal(null); router.refresh()
@@ -36,76 +41,88 @@ export default function ChargesClient({ charges, currency }: Props) {
 
   async function remove(id: string) {
     if (!confirm("Supprimer cette charge ?")) return
-    await fetch(`/api/charges/${id}`, { method: "DELETE" })
-    router.refresh()
+    await fetch(`/api/charges/${id}`, { method: "DELETE" }); router.refresh()
   }
 
   return (
-    <div className="animate-up">
-      <div className="page-header">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Charges fixes</h1>
-          <p className="page-sub">Total actif : {fmt(totalActive)} / semaine</p>
+          <h1 className="text-2xl font-bold tracking-tight">Charges</h1>
+          <div className="flex gap-4 mt-1 text-sm text-muted-foreground">
+            <span>Déductibles actives : <span className="font-semibold text-amber-500">{fmt(totalDeductible)}</span></span>
+            <span>Non déductibles : <span className="font-semibold text-destructive">{fmt(totalNonDeductible)}</span></span>
+          </div>
         </div>
-        <button onClick={() => { setForm(EMPTY); setModal("create") }} className="btn-primary">
-          <Plus size={14} /> Ajouter une charge
-        </button>
+        <Button onClick={() => { setForm(EMPTY); setModal("create") }}><Plus className="h-4 w-4" /> Ajouter</Button>
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Nom</th><th>Montant</th><th>Statut</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nom</TableHead>
+              <TableHead>Montant</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {charges.length === 0 ? (
-              <tr><td colSpan={4} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Aucune charge configurée</td></tr>
+              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">Aucune charge configurée</TableCell></TableRow>
             ) : charges.map(c => (
-              <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.5 }}>
-                <td style={{ fontWeight: 500 }}>{c.name}</td>
-                <td style={{ fontWeight: 700 }}>{fmt(c.amount)}</td>
-                <td>
-                  {c.isActive
-                    ? <span className="badge badge-green">Active</span>
-                    : <span className="badge badge-muted">Inactive</span>}
-                </td>
-                <td>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button onClick={() => toggle(c)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex" }} title={c.isActive ? "Désactiver" : "Activer"}>
-                      {c.isActive ? <ToggleRight size={18} style={{ color: "var(--green)" }} /> : <ToggleLeft size={18} />}
-                    </button>
-                    <button onClick={() => { setSelected(c); setForm({ name: c.name, amount: String(c.amount) }); setModal("edit") }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex" }}>
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => remove(c.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "var(--red)"}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "var(--text-subtle)"}>
-                      <Trash2 size={14} />
-                    </button>
+              <TableRow key={c.id} className={c.isActive ? "" : "opacity-50"}>
+                <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell className="font-semibold">{fmt(c.amount)}</TableCell>
+                <TableCell>
+                  {c.type === "DEDUCTIBLE"
+                    ? <Badge variant="warning">Déductible</Badge>
+                    : <Badge variant="destructive">Non déductible</Badge>}
+                </TableCell>
+                <TableCell>{c.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggle(c)}>
+                      {c.isActive ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelected(c); setForm({ name: c.name, amount: String(c.amount), type: c.type }); setModal("edit") }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(c.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
 
-      <Modal open={modal !== null} onClose={() => setModal(null)} title={modal === "create" ? "Nouvelle charge" : "Modifier la charge"} size="sm">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label className="label">Nom de la charge</label>
-            <input className="input" placeholder="ex: Loyer, Électricité..." value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+      <Dialog open={modal !== null} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>{modal === "create" ? "Nouvelle charge" : "Modifier la charge"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Nom</Label><Input placeholder="Loyer, Électricité, Fournisseur..." value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Montant</Label><Input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></div>
+            <div className="space-y-1.5">
+              <Label>Type</Label>
+              <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DEDUCTIBLE">Déductible (réduit le bénéfice brut)</SelectItem>
+                  <SelectItem value="NON_DEDUCTIBLE">Non déductible (déduit en fin de bilan)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={save} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button>
+            </div>
           </div>
-          <div>
-            <label className="label">Montant</label>
-            <input type="number" min="0" step="0.01" className="input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={save} disabled={loading} className="btn-primary" style={{ flex: 1 }}>{loading ? "..." : "Enregistrer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

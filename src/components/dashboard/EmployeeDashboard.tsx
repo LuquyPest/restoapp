@@ -1,59 +1,97 @@
 "use client"
-
 import { formatCurrency } from "@/lib/utils"
-import { TrendingUp, ShoppingCart, Banknote, Award } from "lucide-react"
+import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import BarChart from "@/components/ui/BarChart"
 
+interface DayData { label: string; value: number }
 interface Props {
   employee: { firstName: string; lastName: string; grade: { name: string; salaryPercent: number } }
   weekRevenue: number; monthRevenue: number; weekSalary: number; monthSalary: number
   currency: string; weekOrderCount: number; monthOrderCount: number
+  dailyData: DayData[]; selectedWeek: number; selectedYear: number
+  currentWeek: number; currentYear: number
 }
 
-export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue, weekSalary, monthSalary, currency, weekOrderCount, monthOrderCount }: Props) {
+export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue, weekSalary, monthSalary, currency, weekOrderCount, monthOrderCount, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
+  const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
+  const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
+
+  function navigate(delta: number) {
+    let w = selectedWeek + delta
+    let y = selectedYear
+    if (w < 1) { w = 52; y-- }
+    if (w > 52) { w = 1; y++ }
+    router.push(`/dashboard?week=${w}&year=${y}`)
+  }
+
+  const stats = [
+    { label: "CA cette semaine", value: fmt(weekRevenue), sub: `${weekOrderCount} commandes`, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Salaire estimé sem.", value: fmt(weekSalary), sub: `${employee.grade.salaryPercent}% du CA net`, icon: Banknote, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { label: "CA ce mois", value: fmt(monthRevenue), sub: `${monthOrderCount} commandes`, icon: ShoppingCart, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Salaire estimé mois", value: fmt(monthSalary), sub: `${employee.grade.salaryPercent}% du CA net`, icon: Banknote, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  ]
 
   return (
-    <div>
-      <div style={{ marginBottom: 32 }}>
-        <h1 className="page-title">Bonjour, {employee.firstName}</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-          <span className="badge badge-accent"><Award size={10} /> {employee.grade.name}</span>
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{employee.grade.salaryPercent}% de commission sur vos ventes</span>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Bonjour, {employee.firstName} 👋</h1>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="default" className="gap-1"><Award className="h-3 w-3" />{employee.grade.name}</Badge>
+            <span className="text-sm text-muted-foreground">{employee.grade.salaryPercent}% de commission sur CA net</span>
+          </div>
+        </div>
+        {/* Week selector */}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-semibold">
+            S{String(selectedWeek).padStart(2,"0")} {selectedYear}
+            {isCurrentWeek && <Badge variant="default" className="text-[10px] px-1.5 ml-1">En cours</Badge>}
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)} disabled={isCurrentWeek}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        {[
-          { label: "CA cette semaine", value: fmt(weekRevenue), sub: `${weekOrderCount} commandes`, icon: TrendingUp, color: "var(--accent)" },
-          { label: "Salaire estimé semaine", value: fmt(weekSalary), sub: `${employee.grade.salaryPercent}% du CA`, icon: Banknote, color: "var(--green)" },
-          { label: "CA ce mois", value: fmt(monthRevenue), sub: `${monthOrderCount} commandes`, icon: ShoppingCart, color: "var(--accent)" },
-          { label: "Salaire estimé mois", value: fmt(monthSalary), sub: `${employee.grade.salaryPercent}% du CA`, icon: Banknote, color: "var(--green)" },
-        ].map((s, i) => (
-          <div key={i} className="stat-card animate-up" style={{ animationDelay: `${i * 0.06}s`, opacity: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</span>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `${s.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <s.icon size={15} style={{ color: s.color }} />
+      <div className="grid grid-cols-2 gap-4">
+        {stats.map((s, i) => (
+          <Card key={i}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${s.bg}`}><s.icon className={`h-4 w-4 ${s.color}`} /></div>
               </div>
-            </div>
-            <p style={{ fontSize: 26, fontWeight: 700, color: s.color, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{s.value}</p>
-            <p style={{ fontSize: 12, color: "var(--text-subtle)" }}>{s.sub}</p>
-          </div>
+              <p className={`text-2xl font-bold tracking-tight ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      <div className="card" style={{ padding: 20 }}>
-        <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 14 }}>Actions rapides</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Link href="/orders" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ width: "100%", height: 40 }}>Nouvelle commande</button>
-          </Link>
-          <Link href="/payroll" style={{ textDecoration: "none" }}>
-            <button className="btn-ghost" style={{ width: "100%", height: 40 }}>Mes payes</button>
-          </Link>
-        </div>
-      </div>
+      {/* Daily chart */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Mes ventes par jour — S{String(selectedWeek).padStart(2,"0")} {selectedYear}</CardTitle>
+        </CardHeader>
+        <CardContent className="px-6 pb-4">
+          <BarChart data={dailyData} currency={currency} height={130} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5">
+          <p className="text-sm font-semibold mb-4">Actions rapides</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button asChild className="h-10"><Link href="/orders">Nouvelle commande</Link></Button>
+            <Button variant="outline" asChild className="h-10"><Link href="/payroll">Mes payes</Link></Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

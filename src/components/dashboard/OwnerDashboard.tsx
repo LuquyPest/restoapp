@@ -1,129 +1,152 @@
 "use client"
-
 import { formatCurrency, formatDateTime } from "@/lib/utils"
-import { TrendingUp, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight } from "lucide-react"
+import { TrendingUp, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import BarChart from "@/components/ui/BarChart"
 
+interface DayData { label: string; value: number }
 interface RecentOrder {
   id: string; total: number; status: string; createdAt: Date
   employee: { firstName: string; lastName: string } | null
   lines: { quantity: number; menuItem: { name: string } }[]
 }
-
 interface Props {
   weekRevenue: number; monthRevenue: number; totalCharges: number; benefit: number
   totalEmployees: number; pendingInvoices: number; weekOrderCount: number; monthOrderCount: number
   recentOrders: RecentOrder[]; currency: string
+  dailyData: DayData[]; selectedWeek: number; selectedYear: number
+  currentWeek: number; currentYear: number
 }
 
-export default function OwnerDashboard({ weekRevenue, monthRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, monthOrderCount, recentOrders, currency }: Props) {
+export default function OwnerDashboard({ weekRevenue, monthRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, monthOrderCount, recentOrders, currency, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
+  const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
 
+  function navigate(delta: number) {
+    let w = selectedWeek + delta
+    let y = selectedYear
+    if (w < 1) { w = 52; y-- }
+    if (w > 52) { w = 1; y++ }
+    router.push(`/dashboard?week=${w}&year=${y}`)
+  }
+
+  const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
+
+  const stats = [
+    { label: "CA semaine", value: fmt(weekRevenue), sub: `${weekOrderCount} commandes`, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10" },
+    { label: "CA ce mois", value: fmt(monthRevenue), sub: "Mois en cours", icon: ShoppingCart, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Charges", value: fmt(totalCharges), sub: "Payes + taxes semaine", icon: Banknote, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { label: "Bénéfice", value: fmt(benefit), sub: "CA mois − charges", icon: TrendingUp, color: benefit >= 0 ? "text-emerald-500" : "text-destructive", bg: benefit >= 0 ? "bg-emerald-500/10" : "bg-destructive/10" },
+  ]
+
+  const statusIcon = (s: string) => {
+    if (s === "CONFIRMED") return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+    if (s === "CANCELLED") return <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+    return <Clock className="h-3.5 w-3.5 text-amber-500" />
+  }
+
   return (
-    <div>
-      <div style={{ marginBottom: 32 }}>
-        <h1 className="page-title">Tableau de bord</h1>
-        <p className="page-sub">Vue d'ensemble de votre établissement</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+          <p className="text-sm text-muted-foreground mt-1">Vue d'ensemble de votre établissement</p>
+        </div>
+        {/* Week selector */}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-semibold">
+            S{String(selectedWeek).padStart(2,"0")} {selectedYear}
+            {isCurrentWeek && <Badge variant="default" className="text-[10px] px-1.5 ml-1">En cours</Badge>}
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)} disabled={isCurrentWeek}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        {[
-          { label: "CA ce mois", value: fmt(monthRevenue), sub: `Semaine : ${fmt(weekRevenue)}`, icon: TrendingUp, color: "var(--accent)" },
-          { label: "Charges", value: fmt(totalCharges), sub: "Payes + taxes", icon: Banknote, color: "var(--amber)" },
-          { label: "Bénéfice", value: fmt(benefit), sub: "CA − charges", icon: TrendingUp, color: benefit >= 0 ? "var(--green)" : "var(--red)" },
-          { label: "Commandes", value: String(monthOrderCount), sub: `Semaine : ${weekOrderCount}`, icon: ShoppingCart, color: "var(--accent)" },
-        ].map((s, i) => (
-          <div key={i} className="stat-card animate-up" style={{ animationDelay: `${i * 0.06}s`, opacity: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</span>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `${s.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <s.icon size={15} style={{ color: s.color }} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map((s, i) => (
+          <Card key={i}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${s.bg}`}>
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
+                </div>
               </div>
-            </div>
-            <p style={{ fontSize: 26, fontWeight: 700, color: s.color, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{s.value}</p>
-            <p style={{ fontSize: 12, color: "var(--text-subtle)" }}>{s.sub}</p>
-          </div>
+              <p className={`text-2xl font-bold tracking-tight ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Quick links */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-        <Link href="/employees" style={{
-          textDecoration: "none", display: "flex", alignItems: "center", gap: 16,
-          padding: "16px 20px", borderRadius: 12, background: "var(--bg-card)",
-          border: "1px solid var(--border)", transition: "border-color 0.15s",
-        }}
-        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border-mid)"}
-        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
-        >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Users size={18} style={{ color: "var(--accent)" }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{totalEmployees}</p>
-            <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Employés actifs</p>
-          </div>
-          <ArrowUpRight size={16} style={{ color: "var(--text-subtle)" }} />
-        </Link>
+      {/* Daily chart */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Ventes par jour — S{String(selectedWeek).padStart(2,"0")} {selectedYear}</CardTitle>
+        </CardHeader>
+        <CardContent className="px-6 pb-4">
+          <BarChart data={dailyData} currency={currency} height={140} />
+        </CardContent>
+      </Card>
 
-        <Link href="/invoices" style={{
-          textDecoration: "none", display: "flex", alignItems: "center", gap: 16,
-          padding: "16px 20px", borderRadius: 12, background: "var(--bg-card)",
-          border: "1px solid var(--border)", transition: "border-color 0.15s",
-        }}
-        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border-mid)"}
-        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
-        >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: pendingInvoices > 0 ? "var(--amber-dim)" : "var(--green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <FileText size={18} style={{ color: pendingInvoices > 0 ? "var(--amber)" : "var(--green)" }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{pendingInvoices}</p>
-            <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Factures en attente</p>
-          </div>
-          <ArrowUpRight size={16} style={{ color: "var(--text-subtle)" }} />
+      {/* Quick links */}
+      <div className="grid grid-cols-2 gap-4">
+        <Link href="/employees">
+          <Card className="hover:border-border/80 transition-colors cursor-pointer group">
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0"><Users className="h-5 w-5 text-primary" /></div>
+              <div className="flex-1"><p className="text-xl font-bold">{totalEmployees}</p><p className="text-sm text-muted-foreground">Employés actifs</p></div>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/invoices">
+          <Card className="hover:border-border/80 transition-colors cursor-pointer group">
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl shrink-0 ${pendingInvoices > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
+                <FileText className={`h-5 w-5 ${pendingInvoices > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+              </div>
+              <div className="flex-1"><p className="text-xl font-bold">{pendingInvoices}</p><p className="text-sm text-muted-foreground">Factures en attente</p></div>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </CardContent>
+          </Card>
         </Link>
       </div>
 
       {/* Recent orders */}
-      <div className="table-wrap">
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Dernières commandes</span>
-          <Link href="/orders" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>Voir tout →</Link>
-        </div>
-        {recentOrders.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Aucune commande</div>
-        ) : (
-          <div>
-            {recentOrders.map(order => (
-              <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 20px", borderBottom: "1px solid var(--border)", transition: "background 0.1s" }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
-              >
-                <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: order.status === "CONFIRMED" ? "var(--green-dim)" : order.status === "CANCELLED" ? "var(--red-dim)" : "var(--amber-dim)" }}>
-                  {order.status === "CONFIRMED" ? <CheckCircle size={13} style={{ color: "var(--green)" }} /> :
-                   order.status === "CANCELLED" ? <AlertCircle size={13} style={{ color: "var(--red)" }} /> :
-                   <Clock size={13} style={{ color: "var(--amber)" }} />}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle>Dernières commandes</CardTitle>
+          <Button variant="ghost" size="sm" asChild><Link href="/orders">Voir tout →</Link></Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {recentOrders.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">Aucune commande</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {recentOrders.map(order => (
+                <div key={order.id} className="flex items-center gap-4 px-6 py-3 hover:bg-muted/40 transition-colors">
+                  <div className="h-7 w-7 flex items-center justify-center rounded-full bg-muted shrink-0">{statusIcon(order.status)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{order.employee ? `${order.employee.firstName} ${order.employee.lastName}` : "—"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{order.lines.map(l => `${l.quantity}× ${l.menuItem.name}`).join(", ")}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold">{fmt(order.total)}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatDateTime(order.createdAt)}</p>
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
-                    {order.employee ? `${order.employee.firstName} ${order.employee.lastName}` : "—"}
-                  </p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {order.lines.map(l => `${l.quantity}× ${l.menuItem.name}`).join(", ")}
-                  </p>
-                </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{fmt(order.total)}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-subtle)" }}>{formatDateTime(order.createdAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

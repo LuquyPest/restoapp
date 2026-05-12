@@ -8,26 +8,28 @@ datasource db {
 }
 
 model Restaurant {
-  id              String   @id @default(cuid())
-  name            String
-  logo            String?
-  currency        String   @default("$")
-  taxRate         Float    @default(0)
-  dividendRate    Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  logo           String?
+  currency       String   @default("$")
+  taxRate        Float    @default(11.9)
+  bonusRate      Float    @default(10)
+  dividendRate   Float    @default(72.26)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  employees   Employee[]
-  grades      Grade[]
-  menuItems   MenuItem[]
-  suppliers   Supplier[]
-  invoices    Invoice[]
-  orders      Order[]
-  payrolls    Payroll[]
-  users       User[]
-  charges     Charge[]
-  partners    Partner[]
-  reports     WeeklyReport[]
+  employees      Employee[]
+  grades         Grade[]
+  menuItems      MenuItem[]
+  suppliers      Supplier[]
+  invoices       Invoice[]
+  orders         Order[]
+  payrolls       Payroll[]
+  users          User[]
+  charges        Charge[]
+  partners       Partner[]
+  loyaltyCards   LoyaltyCard[]
+  weeklyReports  WeeklyReport[]
 
   @@map("restaurants")
 }
@@ -86,8 +88,7 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -132,8 +133,8 @@ model MenuItem {
   description  String?  @db.Text
   price        Float
   costPrice    Float    @default(0)
-  category     String
   imageUrl     String?  @db.Text
+  category     String
   isAvailable  Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -148,10 +149,9 @@ model Partner {
   id              String   @id @default(cuid())
   restaurantId    String
   name            String
-  discountPercent Float    @default(0)
+  discountPercent Float
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orders     Order[]
@@ -159,35 +159,25 @@ model Partner {
   @@map("partners")
 }
 
-model Charge {
-  id           String   @id @default(cuid())
-  restaurantId String
-  name         String
-  amount       Float
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-
-  @@map("charges")
-}
-
 model Order {
   id             String      @id @default(cuid())
   restaurantId   String
   employeeId     String
   partnerId      String?
+  loyaltyCardId  String?
   total          Float
   discountAmount Float       @default(0)
   status         OrderStatus @default(CONFIRMED)
   note           String?     @db.Text
+  weekNumber     Int         @default(0)
+  year           Int         @default(0)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  employee   Employee    @relation(fields: [employeeId], references: [id])
-  partner    Partner?    @relation(fields: [partnerId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+  partner    Partner?   @relation(fields: [partnerId], references: [id])
+  loyaltyCard LoyaltyCard? @relation(fields: [loyaltyCardId], references: [id])
   lines      OrderLine[]
 
   @@map("orders")
@@ -205,6 +195,22 @@ model OrderLine {
   menuItem MenuItem @relation(fields: [menuItemId], references: [id])
 
   @@map("order_lines")
+}
+
+model Charge {
+  id           String      @id @default(cuid())
+  restaurantId String
+  name         String
+  amount       Float
+  type         ChargeType  @default(DEDUCTIBLE)
+  isActive     Boolean     @default(true)
+  weekNumber   Int?
+  year         Int?
+  createdAt    DateTime    @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("charges")
 }
 
 model Supplier {
@@ -244,20 +250,22 @@ model Invoice {
 }
 
 model Payroll {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   restaurantId String
   employeeId   String
-  periodStart  DateTime
-  periodEnd    DateTime
+  weekNumber   Int
+  year         Int
   revenue      Float
-  costRevenue  Float     @default(0)
+  costRevenue  Float    @default(0)
   grossSalary  Float
-  taxes        Float     @default(0)
-  bonus        Float     @default(0)
+  taxes        Float    @default(0)
+  bonus        Float    @default(0)
   netSalary    Float
-  isPaid       Boolean   @default(false)
+  dividends    Float    @default(0)
+  totalToPay   Float    @default(0)
+  isPaid       Boolean  @default(false)
   paidAt       DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   employee   Employee   @relation(fields: [employeeId], references: [id])
@@ -266,22 +274,27 @@ model Payroll {
 }
 
 model WeeklyReport {
-  id           String   @id @default(cuid())
-  restaurantId String
-  weekNumber   Int
-  year         Int
-  revenue      Float    @default(0)
-  costRevenue  Float    @default(0)
-  salaries     Float    @default(0)
-  charges      Float    @default(0)
-  taxes        Float    @default(0)
-  dividend     Float    @default(0)
-  treasury     Float    @default(0)
-  partnerRevenue Float  @default(0)
-  clientRevenue  Float  @default(0)
-  taxDeclared  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  restaurantId    String
+  weekNumber      Int
+  year            Int
+  revenue         Float    @default(0)
+  costRevenue     Float    @default(0)
+  salaries        Float    @default(0)
+  chargesDeductible    Float @default(0)
+  chargesNonDeductible Float @default(0)
+  grossProfit     Float    @default(0)
+  taxes           Float    @default(0)
+  netProfit       Float    @default(0)
+  bonusTotal      Float    @default(0)
+  dividendTotal   Float    @default(0)
+  treasury        Float    @default(0)
+  partnerRevenue  Float    @default(0)
+  clientRevenue   Float    @default(0)
+  savedDividend   Float    @default(0)
+  savedTreasury   Float    @default(0)
+  taxDeclared     Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
@@ -290,6 +303,7 @@ model WeeklyReport {
 }
 
 enum UserRole {
+  SUPERADMIN
   OWNER
   MANAGER
   EMPLOYEE
@@ -305,4 +319,25 @@ enum InvoiceStatus {
   PENDING
   PAID
   OVERDUE
+}
+
+enum ChargeType {
+  DEDUCTIBLE
+  NON_DEDUCTIBLE
+}
+
+model LoyaltyCard {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  firstName       String
+  lastName        String
+  discountPercent Float
+  expiresAt       DateTime
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@map("loyalty_cards")
 }

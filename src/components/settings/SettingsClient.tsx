@@ -1,22 +1,24 @@
 "use client"
-
 import { useState } from "react"
 import { Save, CheckCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 
-interface Restaurant {
-  id: string
-  name: string
-  currency: string
-  taxRate: number
-}
+interface Restaurant { id: string; name: string; currency: string; taxRate: number; bonusRate?: number; dividendRate?: number }
 
 export default function SettingsClient({ restaurant }: { restaurant: Restaurant }) {
   const router = useRouter()
   const [form, setForm] = useState({
     name: restaurant.name,
     currency: restaurant.currency,
-    taxRate: String(restaurant.taxRate),
+    taxRate: String(restaurant.taxRate ?? 11.9),
+    bonusRate: String(restaurant.bonusRate ?? 10),
+    dividendRate: String(restaurant.dividendRate ?? 72.26),
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -24,119 +26,107 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
   async function save() {
     setLoading(true)
     await fetch("/api/restaurants", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: form.name,
-        currency: form.currency,
+        name: form.name, currency: form.currency,
         taxRate: parseFloat(form.taxRate),
+        bonusRate: parseFloat(form.bonusRate),
+        dividendRate: parseFloat(form.dividendRate),
       }),
     })
-    setLoading(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-    router.refresh()
+    setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
   }
 
+  const roles = [
+    { name: "Patron (OWNER)", desc: "Accès complet — tous les modules + paramètres", variant: "default" as const },
+    { name: "Manager (MANAGER)", desc: "Gestion employés, commandes, fournisseurs, factures — pas les paramètres", variant: "secondary" as const },
+    { name: "Employé (EMPLOYEE)", desc: "Dashboard personnel, commandes, carte, ses payes", variant: "outline" as const },
+  ]
+
+  const Field = ({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) => (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
+    </div>
+  )
+
   return (
-    <div className="space-y-6 animate-in max-w-xl">
+    <div className="space-y-6 max-w-2xl animate-fade-in">
       <div>
-        <h1 className="page-title">Paramètres</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-0.5">Configuration de votre établissement</p>
+        <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
+        <p className="text-sm text-muted-foreground mt-1">Configuration de votre établissement</p>
       </div>
 
-      <div className="card p-6 space-y-5">
-        <h2 className="section-title">Informations générales</h2>
+      <Card>
+        <CardHeader><CardTitle>Établissement</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="Nom de l'établissement">
+            <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+          </Field>
+          <Field label="Symbole monétaire" note="Affiché partout dans l'application">
+            <Input className="w-24" maxLength={5} value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} />
+          </Field>
+        </CardContent>
+      </Card>
 
-        <div>
-          <label className="label">Nom de l'établissement</label>
-          <input
-            className="input"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <label className="label">Symbole monétaire</label>
-          <input
-            className="input w-28"
-            placeholder="$, €, ..."
-            maxLength={5}
-            value={form.currency}
-            onChange={(e) => setForm({ ...form, currency: e.target.value })}
-          />
-          <p className="text-xs text-[var(--text-muted)] mt-1.5">
-            Ce symbole sera affiché partout dans l'application
-          </p>
-        </div>
-
-        <div>
-          <label className="label">Taux de taxes par défaut (%)</label>
-          <div className="relative w-40">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              className="input pr-8"
-              value={form.taxRate}
-              onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-sm">%</span>
+      <Card>
+        <CardHeader>
+          <CardTitle>Taux du bilan</CardTitle>
+          <CardDescription>Ces taux sont utilisés pour calculer automatiquement le bilan hebdomadaire</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Field label="Taux d'imposition" note="% du bénéfice brut">
+              <div className="relative">
+                <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: e.target.value })} />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+            </Field>
+            <Field label="Taux prime employé" note="% du bénéfice net">
+              <div className="relative">
+                <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.bonusRate} onChange={e => setForm({ ...form, bonusRate: e.target.value })} />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+            </Field>
+            <Field label="Taux dividende" note="% du bénéfice après prime">
+              <div className="relative">
+                <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.dividendRate} onChange={e => setForm({ ...form, dividendRate: e.target.value })} />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+            </Field>
           </div>
-          <p className="text-xs text-[var(--text-muted)] mt-1.5">
-            Appliqué par défaut lors de la génération des payes
-          </p>
-        </div>
+          <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+            <p><strong>Bénéfice brut</strong> = CA − salaires − charges déductibles</p>
+            <p><strong>Impôts</strong> = Bénéfice brut × {form.taxRate || "?"}%</p>
+            <p><strong>Bénéfice net</strong> = Bénéfice brut − impôts</p>
+            <p><strong>Prime employé</strong> = Bénéfice net × {form.bonusRate || "?"}%</p>
+            <p><strong>Dividendes</strong> = (Bénéfice net − prime) × {form.dividendRate || "?"}%</p>
+            <p><strong>Trésorerie</strong> = (Bénéfice net − prime) × {form.dividendRate ? (100 - parseFloat(form.dividendRate)).toFixed(2) : "?"}%</p>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="pt-2">
-          <button
-            onClick={save}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2"
-          >
-            {saved ? (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Enregistré
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                {loading ? "Enregistrement..." : "Enregistrer"}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      <Button onClick={save} disabled={loading}>
+        {saved ? <><CheckCircle className="h-4 w-4" /> Enregistré</> : <><Save className="h-4 w-4" />{loading ? "Enregistrement..." : "Enregistrer les paramètres"}</>}
+      </Button>
 
-      <div className="card p-6 space-y-4">
-        <h2 className="section-title">Accès et rôles</h2>
-        <div className="space-y-2 text-sm text-[var(--text-muted)]">
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]">
-            <div className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-[var(--text)]">Patron (OWNER)</p>
-              <p>Accès complet — gestion des employés, paramètres, payes, fournisseurs, factures</p>
+      <Separator />
+
+      <Card>
+        <CardHeader><CardTitle>Rôles et permissions</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {roles.map(r => (
+            <div key={r.name} className="flex items-start gap-3 rounded-lg border p-3">
+              <Badge variant={r.variant} className="mt-0.5 shrink-0">{r.name.split(" ")[0]}</Badge>
+              <div>
+                <p className="text-sm font-medium">{r.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]">
-            <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-[var(--text)]">Manager (MANAGER)</p>
-              <p>Gestion des employés, commandes, fournisseurs et factures — pas les paramètres</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg)]">
-            <div className="w-2 h-2 rounded-full bg-teal-500 mt-1.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-[var(--text)]">Employé (EMPLOYEE)</p>
-              <p>Tableau de bord personnel, prise de commandes, consultation de la carte et de ses payes</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   )
 }

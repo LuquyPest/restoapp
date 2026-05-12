@@ -1,79 +1,59 @@
 "use client"
-
 import { formatCurrency } from "@/lib/utils"
 import { TrendingUp, ShoppingCart, Banknote, Award } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-interface EmployeeStat {
-  id: string; firstName: string; lastName: string
-  gradeName: string; salaryPercent: number
-  revenue: number; costRevenue: number; netRevenue: number; salary: number; orderCount: number
-}
-
-interface Props { stats: EmployeeStat[]; currency: string }
-
-export default function SalesClient({ stats, currency }: Props) {
+interface EmployeeStat { id: string; firstName: string; lastName: string; gradeName: string; salaryPercent: number; revenue: number; costRevenue: number; netRevenue: number; salary: number; orderCount: number }
+export default function SalesClient({ stats, currency }: { stats: EmployeeStat[]; currency: string }) {
   const fmt = (n: number) => formatCurrency(n, currency)
-  const totalRevenue = stats.reduce((s, e) => s + e.revenue, 0)
-  const totalCost = stats.reduce((s, e) => s + e.costRevenue, 0)
-  const totalSalaries = stats.reduce((s, e) => s + e.salary, 0)
+  const totals = { revenue: stats.reduce((s,e) => s+e.revenue, 0), cost: stats.reduce((s,e) => s+e.costRevenue, 0), salaries: stats.reduce((s,e) => s+e.salary, 0) }
 
   return (
-    <div className="animate-up">
-      <div style={{ marginBottom: 28 }}>
-        <h1 className="page-title">Liste des ventes</h1>
-        <p className="page-sub">Performance de l'équipe cette semaine</p>
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Liste des ventes</h1>
+        <p className="text-sm text-muted-foreground mt-1">Performance de l'équipe cette semaine</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
+      <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "CA total semaine", value: fmt(totalRevenue), icon: TrendingUp, color: "var(--accent)" },
-          { label: "Coût de revient", value: fmt(totalCost), icon: ShoppingCart, color: "var(--amber)" },
-          { label: "Salaires estimés", value: fmt(totalSalaries), icon: Banknote, color: "var(--green)" },
+          { label: "CA total", value: fmt(totals.revenue), icon: TrendingUp, color: "text-primary", bg: "bg-primary/10" },
+          { label: "Coût de revient", value: fmt(totals.cost), icon: ShoppingCart, color: "text-amber-500", bg: "bg-amber-500/10" },
+          { label: "Salaires estimés", value: fmt(totals.salaries), icon: Banknote, color: "text-emerald-500", bg: "bg-emerald-500/10" },
         ].map((s, i) => (
-          <div key={i} className="stat-card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</span>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: `${s.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <s.icon size={14} style={{ color: s.color }} />
-              </div>
+          <Card key={i}><CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.bg}`}><s.icon className={`h-4 w-4 ${s.color}`} /></div>
             </div>
-            <p style={{ fontSize: 24, fontWeight: 700, color: s.color, letterSpacing: "-0.02em" }}>{s.value}</p>
-          </div>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+          </CardContent></Card>
         ))}
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Employé</th>
-              <th>Grade</th>
-              <th>Commandes</th>
-              <th>CA brut</th>
-              <th>Coût revient</th>
-              <th>CA net</th>
-              <th>% Salaire</th>
-              <th>Salaire estimé</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader><TableRow><TableHead>Employé</TableHead><TableHead>Grade</TableHead><TableHead>Commandes</TableHead><TableHead>CA brut</TableHead><TableHead>Coût revient</TableHead><TableHead>CA net</TableHead><TableHead>%</TableHead><TableHead>Salaire estimé</TableHead></TableRow></TableHeader>
+          <TableBody>
             {stats.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Aucune vente cette semaine</td></tr>
+              <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">Aucune vente cette semaine</TableCell></TableRow>
             ) : stats.map(emp => (
-              <tr key={emp.id}>
-                <td style={{ fontWeight: 600 }}>{emp.firstName} {emp.lastName}</td>
-                <td><span className="badge badge-accent"><Award size={9} /> {emp.gradeName}</span></td>
-                <td style={{ color: "var(--text-muted)" }}>{emp.orderCount}</td>
-                <td style={{ fontWeight: 600 }}>{fmt(emp.revenue)}</td>
-                <td style={{ color: "var(--amber)" }}>−{fmt(emp.costRevenue)}</td>
-                <td style={{ fontWeight: 700, color: "var(--accent)" }}>{fmt(emp.netRevenue)}</td>
-                <td><span className="badge badge-muted">{emp.salaryPercent}%</span></td>
-                <td style={{ fontWeight: 700, color: "var(--green)" }}>{fmt(emp.salary)}</td>
-              </tr>
+              <TableRow key={emp.id}>
+                <TableCell className="font-semibold">{emp.firstName} {emp.lastName}</TableCell>
+                <TableCell><Badge variant="default" className="gap-1"><Award className="h-3 w-3" />{emp.gradeName}</Badge></TableCell>
+                <TableCell className="text-muted-foreground">{emp.orderCount}</TableCell>
+                <TableCell className="font-medium">{fmt(emp.revenue)}</TableCell>
+                <TableCell className="text-amber-500">−{fmt(emp.costRevenue)}</TableCell>
+                <TableCell className="font-bold text-primary">{fmt(emp.netRevenue)}</TableCell>
+                <TableCell><Badge variant="secondary">{emp.salaryPercent}%</Badge></TableCell>
+                <TableCell className="font-bold text-emerald-500">{fmt(emp.salary)}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }

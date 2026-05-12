@@ -1,23 +1,36 @@
 "use client"
-
 import { useState, useMemo } from "react"
-import { Plus, Minus, ShoppingCart, Trash2, CheckCircle, Clock, XCircle, Search, Image as ImageIcon, Tag, Filter } from "lucide-react"
+import { Plus, Minus, ShoppingCart, Trash2, CheckCircle, Clock, XCircle, Search, ImageIcon, Tag, Filter, CreditCard } from "lucide-react"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface MenuItem { id: string; name: string; price: number; costPrice: number; category: string; imageUrl: string | null }
 interface Partner { id: string; name: string; discountPercent: number }
+interface LoyaltyCard { id: string; firstName: string; lastName: string; discountPercent: number; expiresAt: Date }
 interface OrderLine { quantity: number; unitPrice: number; menuItem: { name: string } }
 interface Order {
   id: string; total: number; discountAmount: number; status: string; createdAt: Date; note: string | null
   employee: { id: string; firstName: string; lastName: string } | null
   partner: Partner | null
+  loyaltyCard: LoyaltyCard | null
   lines: OrderLine[]
 }
 interface CartItem { item: MenuItem; qty: number }
-interface Props { menuItems: MenuItem[]; orders: Order[]; partners: Partner[]; role: string; currency: string; employees?: { id: string; firstName: string; lastName: string }[] }
+interface Props {
+  menuItems: MenuItem[]; orders: Order[]; partners: Partner[]
+  loyaltyCards: LoyaltyCard[]; role: string; currency: string
+  employees?: { id: string; firstName: string; lastName: string }[]
+}
 
-export default function OrdersClient({ menuItems, orders, partners, role, currency, employees = [] }: Props) {
+export default function OrdersClient({ menuItems, orders, partners, loyaltyCards, role, currency, employees = [] }: Props) {
   const router = useRouter()
   const [cart, setCart] = useState<CartItem[]>([])
   const [search, setSearch] = useState("")
@@ -26,8 +39,7 @@ export default function OrdersClient({ menuItems, orders, partners, role, curren
   const [note, setNote] = useState("")
   const [view, setView] = useState<"order" | "history">("order")
   const [selectedPartnerId, setSelectedPartnerId] = useState("")
-
-  // Filters for history
+  const [selectedLoyaltyId, setSelectedLoyaltyId] = useState("")
   const [filterEmployee, setFilterEmployee] = useState("")
   const [filterDateFrom, setFilterDateFrom] = useState("")
   const [filterDateTo, setFilterDateTo] = useState("")
@@ -41,10 +53,15 @@ export default function OrdersClient({ menuItems, orders, partners, role, curren
   ), [menuItems, search, activeCategory])
 
   const selectedPartner = partners.find(p => p.id === selectedPartnerId) ?? null
+  const selectedLoyalty = loyaltyCards.find(c => c.id === selectedLoyaltyId) ?? null
+  const partnerDiscount = selectedPartner?.discountPercent ?? 0
+  const loyaltyDiscount = selectedLoyalty?.discountPercent ?? 0
+  const discountPercent = Math.max(partnerDiscount, loyaltyDiscount)
   const subtotal = cart.reduce((s, c) => s + c.item.price * c.qty, 0)
-  const discount = selectedPartner ? subtotal * (selectedPartner.discountPercent / 100) : 0
-  const total = Math.max(0, subtotal - discount)
+  const discountAmount = subtotal * (discountPercent / 100)
+  const total = Math.max(0, subtotal - discountAmount)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
+  const appliedDiscount = discountPercent > 0 ? (partnerDiscount >= loyaltyDiscount ? selectedPartner?.name : `${selectedLoyalty?.firstName} ${selectedLoyalty?.lastName}`) : null
 
   const filteredOrders = useMemo(() => orders.filter(o => {
     if (filterEmployee && o.employee?.id !== filterEmployee) return false
@@ -57,34 +74,26 @@ export default function OrdersClient({ menuItems, orders, partners, role, curren
   const totalFiltered = filteredOrders.filter(o => o.status === "CONFIRMED").reduce((s, o) => s + o.total, 0)
 
   function addToCart(item: MenuItem) {
-    setCart(prev => {
-      const ex = prev.find(c => c.item.id === item.id)
-      if (ex) return prev.map(c => c.item.id === item.id ? { ...c, qty: c.qty + 1 } : c)
-      return [...prev, { item, qty: 1 }]
-    })
+    setCart(prev => { const ex = prev.find(c => c.item.id === item.id); if (ex) return prev.map(c => c.item.id === item.id ? { ...c, qty: c.qty + 1 } : c); return [...prev, { item, qty: 1 }] })
   }
-
-  function updateQty(id: string, delta: number) {
-    setCart(prev => prev.map(c => c.item.id === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0))
-  }
+  function updateQty(id: string, delta: number) { setCart(prev => prev.map(c => c.item.id === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0)) }
 
   async function confirmOrder() {
     if (cart.length === 0) return
     setLoading(true)
     try {
       const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lines: cart.map(c => ({ menuItemId: c.item.id, quantity: c.qty, unitPrice: c.item.price, costPrice: c.item.costPrice })),
           note: note || undefined,
           partnerId: selectedPartnerId || null,
+          loyaltyCardId: selectedLoyaltyId || null,
         }),
       })
       if (!res.ok) throw new Error()
-      setCart([]); setNote(""); setSelectedPartnerId(""); router.refresh()
-    } catch { alert("Erreur lors de la commande") }
-    finally { setLoading(false) }
+      setCart([]); setNote(""); setSelectedPartnerId(""); setSelectedLoyaltyId(""); router.refresh()
+    } catch { alert("Erreur") } finally { setLoading(false) }
   }
 
   async function updateStatus(id: string, status: string) {
@@ -93,28 +102,21 @@ export default function OrdersClient({ menuItems, orders, partners, role, curren
   }
 
   const StatusBadge = ({ s }: { s: string }) => {
-    if (s === "CONFIRMED") return <span className="badge badge-green"><CheckCircle size={10} /> Confirmée</span>
-    if (s === "CANCELLED") return <span className="badge badge-red"><XCircle size={10} /> Annulée</span>
-    return <span className="badge badge-amber"><Clock size={10} /> En attente</span>
+    if (s === "CONFIRMED") return <Badge variant="success"><CheckCircle className="h-3 w-3" /> Confirmée</Badge>
+    if (s === "CANCELLED") return <Badge variant="destructive"><XCircle className="h-3 w-3" /> Annulée</Badge>
+    return <Badge variant="warning"><Clock className="h-3 w-3" /> En attente</Badge>
   }
 
-  const hasFilters = filterEmployee || filterDateFrom || filterDateTo || filterStatus
-
   return (
-    <div className="animate-up">
-      <div className="page-header">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Commandes</h1>
-          <p className="page-sub">Nouvelle commande ou historique</p>
+          <h1 className="text-2xl font-bold tracking-tight">Commandes</h1>
+          <p className="text-sm text-muted-foreground mt-1">Nouvelle commande ou historique</p>
         </div>
-        <div style={{ display: "flex", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10, padding: 3, gap: 2 }}>
+        <div className="flex bg-muted rounded-lg p-1 gap-1">
           {(["order", "history"] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: "6px 16px", borderRadius: 7, border: "none", cursor: "pointer",
-              fontSize: 13, fontWeight: 500, fontFamily: "inherit", transition: "all 0.15s",
-              background: view === v ? "var(--accent)" : "transparent",
-              color: view === v ? "#fff" : "var(--text-muted)",
-            }}>
+            <button key={v} onClick={() => setView(v)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {v === "order" ? `Commande${cartCount > 0 ? ` (${cartCount})` : ""}` : "Historique"}
             </button>
           ))}
@@ -122,208 +124,211 @@ export default function OrdersClient({ menuItems, orders, partners, role, curren
       </div>
 
       {view === "order" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20, alignItems: "start" }}>
-          <div>
-            <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ position: "relative" }}>
-                <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-subtle)", pointerEvents: "none" }} />
-                <input className="input" placeholder="Rechercher..." style={{ paddingLeft: 36 }} value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {categories.map(cat => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} style={{
-                    padding: "4px 12px", borderRadius: 20, border: "1px solid",
-                    fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                    background: activeCategory === cat ? "var(--accent)" : "var(--bg-elevated)",
-                    borderColor: activeCategory === cat ? "var(--accent)" : "var(--border)",
-                    color: activeCategory === cat ? "#fff" : "var(--text-muted)",
-                  }}>{cat}</button>
-                ))}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] items-start">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input placeholder="Rechercher..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+            <div className="flex gap-2 flex-wrap">
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>{cat}</button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {filtered.map(item => {
                 const inCart = cart.find(c => c.item.id === item.id)
                 return (
-                  <div key={item.id} className="card" style={{ overflow: "hidden", cursor: "pointer", transition: "border-color 0.15s, transform 0.15s" }}
-                    onClick={() => addToCart(item)}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--accent)"; el.style.transform = "translateY(-2px)"; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--border)"; el.style.transform = "translateY(0)"; }}
-                  >
+                  <Card key={item.id} className="overflow-hidden cursor-pointer transition-all hover:border-primary/50 hover:-translate-y-0.5" onClick={() => addToCart(item)}>
                     {item.imageUrl ? (
-                      <div style={{ height: 100, overflow: "hidden", background: "var(--bg)" }}>
-                        <img src={item.imageUrl} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
-                      </div>
+                      <img src={item.imageUrl} alt={item.name} className="h-24 w-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
                     ) : (
-                      <div style={{ height: 70, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <ImageIcon size={18} style={{ color: "var(--text-subtle)" }} />
-                      </div>
+                      <div className="h-20 bg-muted flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
                     )}
-                    <div style={{ padding: "10px 12px" }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 4, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{item.name}</p>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{fmt(item.price)}</span>
-                        {inCart && <span style={{ fontSize: 11, fontWeight: 700, background: "var(--accent)", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>×{inCart.qty}</span>}
+                    <CardContent className="p-3">
+                      <p className="text-sm font-semibold truncate">{item.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm font-bold text-primary">{fmt(item.price)}</span>
+                        {inCart && <Badge variant="default" className="text-[10px] px-1.5">×{inCart.qty}</Badge>}
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )
               })}
-              {filtered.length === 0 && <div style={{ gridColumn: "1/-1", padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Aucun article</div>}
+              {filtered.length === 0 && <div className="col-span-full py-10 text-center text-sm text-muted-foreground">Aucun article</div>}
             </div>
           </div>
 
           {/* Cart */}
-          <div className="card" style={{ padding: 18, position: "sticky", top: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <ShoppingCart size={15} style={{ color: "var(--accent)" }} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Panier</span>
-            </div>
-            {cart.length === 0 ? (
-              <div style={{ padding: "28px 0", textAlign: "center" }}>
-                <p style={{ fontSize: 13, color: "var(--text-subtle)" }}>Cliquez sur un article</p>
-              </div>
-            ) : (
-              <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                  {cart.map(c => (
-                    <div key={c.item.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <button onClick={() => updateQty(c.item.id, -1)} style={{ width: 22, height: 22, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg)", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={9} /></button>
-                        <span style={{ fontSize: 13, fontWeight: 600, width: 18, textAlign: "center" }}>{c.qty}</span>
-                        <button onClick={() => updateQty(c.item.id, 1)} style={{ width: 22, height: 22, borderRadius: 5, border: "none", background: "var(--accent)", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={9} /></button>
+          <Card className="sticky top-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base"><ShoppingCart className="h-4 w-4 text-primary" />Panier</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {cart.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-6">Cliquez sur un article</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {cart.map(c => (
+                      <div key={c.item.id} className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, -1)}><Minus className="h-3 w-3" /></Button>
+                          <span className="text-sm font-semibold w-5 text-center">{c.qty}</span>
+                          <Button size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, 1)}><Plus className="h-3 w-3" /></Button>
+                        </div>
+                        <span className="flex-1 text-xs truncate">{c.item.name}</span>
+                        <span className="text-sm font-semibold">{fmt(c.item.price * c.qty)}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => setCart(p => p.filter(x => x.item.id !== c.item.id))}><Trash2 className="h-3 w-3" /></Button>
                       </div>
-                      <span style={{ flex: 1, fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.item.name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0 }}>{fmt(c.item.price * c.qty)}</span>
-                      <button onClick={() => setCart(p => p.filter(x => x.item.id !== c.item.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-subtle)", display: "flex", padding: 2 }}><Trash2 size={11} /></button>
+                    ))}
+                  </div>
+
+                  {/* Partner selector */}
+                  {partners.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-1.5 text-xs"><Tag className="h-3 w-3" />Partenaire</Label>
+                      <Select value={selectedPartnerId || "none"} onValueChange={v => setSelectedPartnerId(v === "none" ? "" : v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Client standard" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun partenaire</SelectItem>
+                          {partners.map(p => <SelectItem key={p.id} value={p.id}>{p.name} (−{p.discountPercent}%)</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                </div>
-                {partners.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <label className="label" style={{ display: "flex", alignItems: "center", gap: 5 }}><Tag size={11} /> Partenaire</label>
-                    <select className="input" value={selectedPartnerId} onChange={e => setSelectedPartnerId(e.target.value)} style={{ fontSize: 13 }}>
-                      <option value="">Aucun (client standard)</option>
-                      {partners.map(p => <option key={p.id} value={p.id}>{p.name} (−{p.discountPercent}%)</option>)}
-                    </select>
+                  )}
+
+                  {/* Loyalty card selector */}
+                  {loyaltyCards.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-1.5 text-xs"><CreditCard className="h-3 w-3" />Carte de fidélité</Label>
+                      <Select value={selectedLoyaltyId || "none"} onValueChange={v => setSelectedLoyaltyId(v === "none" ? "" : v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aucune carte" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucune carte</SelectItem>
+                          {loyaltyCards.map(c => <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName} (−{c.discountPercent}%)</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Applied discount info */}
+                  {discountPercent > 0 && (
+                    <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-500">
+                      <p className="font-semibold">Remise appliquée : −{discountPercent}%</p>
+                      {partnerDiscount > 0 && loyaltyDiscount > 0 && partnerDiscount !== loyaltyDiscount && (
+                        <p className="opacity-80 mt-0.5">La meilleure remise est appliquée (non cumulable)</p>
+                      )}
+                      <div className="flex justify-between mt-1">
+                        <span>Réduction</span><span>−{fmt(discountAmount)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-3 flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total</span>
+                    <span className="text-xl font-bold">{fmt(total)}</span>
                   </div>
-                )}
-                {discount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--green)", marginBottom: 6 }}>
-                    <span>Remise {selectedPartner?.discountPercent}%</span><span>−{fmt(discount)}</span>
-                  </div>
-                )}
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Total</span>
-                    <span style={{ fontSize: 20, fontWeight: 700 }}>{fmt(total)}</span>
-                  </div>
-                </div>
-                <textarea className="input" rows={2} placeholder="Note (optionnel)" style={{ marginBottom: 10, fontSize: 12 }} value={note} onChange={e => setNote(e.target.value)} />
-                <button onClick={confirmOrder} disabled={loading} className="btn-primary" style={{ width: "100%", height: 38 }}>
-                  {loading ? "Envoi..." : "Confirmer"}
-                </button>
-              </>
-            )}
-          </div>
+
+                  <Textarea placeholder="Note (optionnel)" rows={2} className="text-xs" value={note} onChange={e => setNote(e.target.value)} />
+                  <Button className="w-full" onClick={confirmOrder} disabled={loading}>{loading ? "Envoi..." : "Confirmer la commande"}</Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {view === "history" && (
-        <div>
-          {/* Filters bar */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", fontSize: 13 }}>
-              <Filter size={13} /> Filtres
-            </div>
-            {(role === "OWNER" || role === "MANAGER") && employees.length > 0 && (
-              <div>
-                <label className="label" style={{ marginBottom: 4 }}>Employé</label>
-                <select className="input" style={{ width: 180 }} value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)}>
-                  <option value="">Tous</option>
-                  {employees.map(e => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
-                </select>
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mr-2"><Filter className="h-4 w-4" /> Filtres</div>
+                {(role === "OWNER" || role === "MANAGER") && employees.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Employé</Label>
+                    <Select value={filterEmployee || "all"} onValueChange={v => setFilterEmployee(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Tous" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.firstName} {e.lastName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-xs">Statut</Label>
+                  <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>
+                    <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Tous" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      <SelectItem value="CONFIRMED">Confirmée</SelectItem>
+                      <SelectItem value="PENDING">En attente</SelectItem>
+                      <SelectItem value="CANCELLED">Annulée</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1"><Label className="text-xs">Du</Label><Input type="date" className="h-8 w-36 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-xs">Au</Label><Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} /></div>
+                {(filterEmployee || filterStatus || filterDateFrom || filterDateTo) && (
+                  <Button variant="ghost" size="sm" onClick={() => { setFilterEmployee(""); setFilterStatus(""); setFilterDateFrom(""); setFilterDateTo("") }}>Réinitialiser</Button>
+                )}
               </div>
-            )}
-            <div>
-              <label className="label" style={{ marginBottom: 4 }}>Statut</label>
-              <select className="input" style={{ width: 140 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">Tous</option>
-                <option value="CONFIRMED">Confirmée</option>
-                <option value="PENDING">En attente</option>
-                <option value="CANCELLED">Annulée</option>
-              </select>
-            </div>
-            <div>
-              <label className="label" style={{ marginBottom: 4 }}>Du</label>
-              <input type="date" className="input" style={{ width: 150 }} value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
-            </div>
-            <div>
-              <label className="label" style={{ marginBottom: 4 }}>Au</label>
-              <input type="date" className="input" style={{ width: 150 }} value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
-            </div>
-            {hasFilters && (
-              <button onClick={() => { setFilterEmployee(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("") }} className="btn-ghost" style={{ height: 36, alignSelf: "flex-end" }}>
-                Réinitialiser
-              </button>
-            )}
-          </div>
+              <div className="flex gap-4 mt-3 pt-3 border-t text-sm">
+                <span className="text-muted-foreground"><span className="font-semibold text-foreground">{filteredOrders.length}</span> commande{filteredOrders.length > 1 ? "s" : ""}</span>
+                <span className="text-muted-foreground">CA confirmé : <span className="font-bold text-primary">{fmt(totalFiltered)}</span></span>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Summary */}
-          <div style={{ display: "flex", gap: 16, marginBottom: 16, padding: "12px 16px", background: "var(--bg-elevated)", borderRadius: 10, border: "1px solid var(--border)", flexWrap: "wrap" }}>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              <span style={{ fontWeight: 600, color: "var(--text)" }}>{filteredOrders.length}</span> commande{filteredOrders.length > 1 ? "s" : ""}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              CA confirmé : <span style={{ fontWeight: 700, color: "var(--accent)" }}>{fmt(totalFiltered)}</span>
-            </div>
-          </div>
-
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Employé</th>
-                  <th>Articles</th>
-                  <th>Partenaire</th>
-                  <th>Remise</th>
-                  <th>Total</th>
-                  <th>Statut</th>
-                  <th>Date</th>
-                  {(role === "OWNER" || role === "MANAGER") && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employé</TableHead>
+                  <TableHead>Articles</TableHead>
+                  <TableHead>Remise</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Date</TableHead>
+                  {(role === "OWNER" || role === "MANAGER") && <TableHead>Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredOrders.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Aucune commande</td></tr>
+                  <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucune commande</TableCell></TableRow>
                 ) : filteredOrders.map(order => (
-                  <tr key={order.id}>
-                    <td style={{ fontWeight: 500 }}>{order.employee ? `${order.employee.firstName} ${order.employee.lastName}` : "—"}</td>
-                    <td style={{ color: "var(--text-muted)", maxWidth: 180 }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
-                        {order.lines.map(l => `${l.quantity}× ${l.menuItem.name}`).join(", ")}
-                      </span>
-                    </td>
-                    <td>{order.partner ? <span className="badge badge-accent">{order.partner.name}</span> : <span style={{ color: "var(--text-subtle)" }}>—</span>}</td>
-                    <td style={{ color: "var(--green)" }}>{order.discountAmount > 0 ? `−${fmt(order.discountAmount)}` : "—"}</td>
-                    <td style={{ fontWeight: 700 }}>{fmt(order.total)}</td>
-                    <td><StatusBadge s={order.status} /></td>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12, whiteSpace: "nowrap" }}>{formatDateTime(order.createdAt)}</td>
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.employee ? `${order.employee.firstName} ${order.employee.lastName}` : "—"}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[180px]">
+                      <span className="truncate block">{order.lines.map(l => `${l.quantity}× ${l.menuItem.name}`).join(", ")}</span>
+                      <div className="flex gap-1 mt-1">
+                        {order.partner && <Badge variant="default" className="text-[10px]">{order.partner.name}</Badge>}
+                        {order.loyaltyCard && <Badge variant="secondary" className="text-[10px] gap-1"><CreditCard className="h-2.5 w-2.5" />{order.loyaltyCard.firstName} {order.loyaltyCard.lastName}</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-emerald-500 text-sm">{order.discountAmount > 0 ? `−${fmt(order.discountAmount)}` : "—"}</TableCell>
+                    <TableCell className="font-semibold">{fmt(order.total)}</TableCell>
+                    <TableCell><StatusBadge s={order.status} /></TableCell>
+                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(order.createdAt)}</TableCell>
                     {(role === "OWNER" || role === "MANAGER") && (
-                      <td>
+                      <TableCell>
                         {order.status === "PENDING" && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => updateStatus(order.id, "CONFIRMED")} className="btn-success" style={{ height: 26, padding: "0 10px", fontSize: 11 }}>Confirmer</button>
-                            <button onClick={() => updateStatus(order.id, "CANCELLED")} className="btn-danger" style={{ height: 26, padding: "0 10px", fontSize: 11 }}>Annuler</button>
+                          <div className="flex gap-1.5">
+                            <Button variant="success" size="sm" className="h-7 text-xs" onClick={() => updateStatus(order.id, "CONFIRMED")}>Confirmer</Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs hover:bg-destructive/10 hover:text-destructive" onClick={() => updateStatus(order.id, "CANCELLED")}>Annuler</Button>
                           </div>
                         )}
-                      </td>
+                      </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
         </div>
       )}
     </div>

@@ -1,18 +1,31 @@
 "use client"
-
 import { useState } from "react"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Calculator, CheckCircle, Clock, Plus } from "lucide-react"
-import Modal from "@/components/ui/Modal"
+import { Calculator, CheckCircle, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+function getISOWeek(d: Date) {
+  const date = new Date(d); date.setHours(0,0,0,0)
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
+  const week1 = new Date(date.getFullYear(), 0, 4)
+  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
+}
 
 interface Grade { name: string; salaryPercent: number }
 interface Employee { id: string; firstName: string; lastName: string; grade: Grade }
 interface Payroll {
   id: string
-  periodStart: Date
-  periodEnd: Date
+  weekNumber: number
+  year: number
   revenue: number
+  costRevenue: number
   grossSalary: number
   taxes: number
   bonus: number
@@ -20,230 +33,164 @@ interface Payroll {
   isPaid: boolean
   employee: Employee & { grade: Grade }
 }
-
-interface Props {
-  payrolls: Payroll[]
-  employees: Employee[]
-  role: string
-  currency: string
-  defaultTaxRate: number
-}
+interface Props { payrolls: Payroll[]; employees: Employee[]; role: string; currency: string; defaultTaxRate: number }
 
 export default function PayrollClient({ payrolls, employees, role, currency, defaultTaxRate }: Props) {
   const router = useRouter()
+  const now = new Date()
   const [modal, setModal] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [periodStart, setPeriodStart] = useState("")
-  const [periodEnd, setPeriodEnd] = useState("")
+  const [weekNumber, setWeekNumber] = useState(String(getISOWeek(now)))
+  const [year, setYear] = useState(String(now.getFullYear()))
   const [taxRate, setTaxRate] = useState(String(defaultTaxRate))
   const [bonuses, setBonuses] = useState<Record<string, string>>({})
-
-  const fmt = (n: number) => formatCurrency(n, currency)
   const isOwner = role === "OWNER" || role === "MANAGER"
+  const fmt = (n: number) => formatCurrency(n, currency)
+  const totalNet = payrolls.filter(p => !p.isPaid).reduce((s, p) => s + p.netSalary, 0)
 
   async function generate() {
     setLoading(true)
     const bonusMap: Record<string, number> = {}
-    Object.entries(bonuses).forEach(([id, val]) => {
-      if (val) bonusMap[id] = parseFloat(val)
-    })
+    Object.entries(bonuses).forEach(([id, val]) => { if (val) bonusMap[id] = parseFloat(val) })
     await fetch("/api/payroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        periodStart,
-        periodEnd,
+        weekNumber: parseInt(weekNumber),
+        year: parseInt(year),
         taxRate: parseFloat(taxRate),
         bonuses: bonusMap,
       }),
     })
-    setLoading(false)
-    setModal(false)
-    router.refresh()
+    setLoading(false); setModal(false); router.refresh()
   }
 
   async function markPaid(id: string) {
-    await fetch(`/api/payroll/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPaid: true }),
-    })
+    await fetch(`/api/payroll/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isPaid: true }) })
     router.refresh()
   }
 
-  const totalNet = payrolls.filter((p) => !p.isPaid).reduce((s, p) => s + p.netSalary, 0)
-
   return (
-    <div className="space-y-6 animate-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Payes</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-0.5">
-            {isOwner ? `${payrolls.filter((p) => !p.isPaid).length} en attente — ${fmt(totalNet)} à verser` : "Votre historique de payes"}
+          <h1 className="text-2xl font-bold tracking-tight">Payes</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isOwner ? `${payrolls.filter(p => !p.isPaid).length} en attente · ${fmt(totalNet)} à verser` : "Votre historique de payes"}
           </p>
         </div>
         {isOwner && (
-          <button onClick={() => setModal(true)} className="btn-primary flex items-center gap-2">
-            <Calculator className="w-4 h-4" />
-            Générer les payes
-          </button>
+          <Button onClick={() => setModal(true)}>
+            <Calculator className="h-4 w-4" /> Générer les payes
+          </Button>
         )}
       </div>
 
-      <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              {isOwner && <th>Employé</th>}
-              <th>Période</th>
-              <th>CA réalisé</th>
-              <th>Salaire brut</th>
-              <th>Taxes</th>
-              <th>Prime</th>
-              <th>Net</th>
-              <th>Statut</th>
-              {isOwner && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {isOwner && <TableHead>Employé</TableHead>}
+              <TableHead>Semaine</TableHead>
+              <TableHead>CA réalisé</TableHead>
+              <TableHead>Coût revient</TableHead>
+              <TableHead>Salaire brut</TableHead>
+              <TableHead>Taxes</TableHead>
+              <TableHead>Prime</TableHead>
+              <TableHead>Net</TableHead>
+              <TableHead>Statut</TableHead>
+              {isOwner && <TableHead>Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {payrolls.length === 0 ? (
-              <tr>
-                <td colSpan={isOwner ? 9 : 7} className="text-center text-[var(--text-muted)] py-10">
-                  Aucune paye générée pour le moment
-                </td>
-              </tr>
-            ) : (
-              payrolls.map((p) => (
-                <tr key={p.id}>
-                  {isOwner && (
-                    <td>
-                      <div>
-                        <p className="font-medium">{p.employee.firstName} {p.employee.lastName}</p>
-                        <p className="text-xs text-[var(--text-muted)]">{p.employee.grade.name} — {p.employee.grade.salaryPercent}%</p>
-                      </div>
-                    </td>
-                  )}
-                  <td className="text-sm text-[var(--text-muted)]">
-                    {formatDate(p.periodStart)} → {formatDate(p.periodEnd)}
-                  </td>
-                  <td className="font-medium">{fmt(p.revenue)}</td>
-                  <td>{fmt(p.grossSalary)}</td>
-                  <td className="text-[var(--danger)]">−{fmt(p.taxes)}</td>
-                  <td className="text-green-600 dark:text-green-400">+{fmt(p.bonus)}</td>
-                  <td className="font-bold text-[var(--text)]">{fmt(p.netSalary)}</td>
-                  <td>
-                    {p.isPaid ? (
-                      <span className="badge badge-success">
-                        <CheckCircle className="w-3 h-3" /> Versée
-                      </span>
-                    ) : (
-                      <span className="badge badge-warning">
-                        <Clock className="w-3 h-3" /> En attente
-                      </span>
+              <TableRow><TableCell colSpan={isOwner ? 10 : 8} className="text-center py-10 text-muted-foreground">Aucune paye générée</TableCell></TableRow>
+            ) : payrolls.map(p => (
+              <TableRow key={p.id}>
+                {isOwner && (
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{p.employee.firstName} {p.employee.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{p.employee.grade.name} · {p.employee.grade.salaryPercent}%</p>
+                    </div>
+                  </TableCell>
+                )}
+                <TableCell className="text-xs text-muted-foreground">S{String(p.weekNumber).padStart(2,"0")} {p.year}</TableCell>
+                <TableCell className="font-medium">{fmt(p.revenue)}</TableCell>
+                <TableCell className="text-amber-500">−{fmt(p.costRevenue ?? 0)}</TableCell>
+                <TableCell>{fmt(p.grossSalary)}</TableCell>
+                <TableCell className="text-destructive">−{fmt(p.taxes)}</TableCell>
+                <TableCell className="text-emerald-500">+{fmt(p.bonus)}</TableCell>
+                <TableCell className="font-bold">{fmt(p.netSalary)}</TableCell>
+                <TableCell>
+                  {p.isPaid
+                    ? <Badge variant="success"><CheckCircle className="h-3 w-3" /> Versée</Badge>
+                    : <Badge variant="warning"><Clock className="h-3 w-3" /> En attente</Badge>}
+                </TableCell>
+                {isOwner && (
+                  <TableCell>
+                    {!p.isPaid && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs hover:text-primary" onClick={() => markPaid(p.id)}>
+                        Marquer versée
+                      </Button>
                     )}
-                  </td>
-                  {isOwner && (
-                    <td>
-                      {!p.isPaid && (
-                        <button
-                          onClick={() => markPaid(p.id)}
-                          className="text-xs text-brand-500 hover:text-brand-600 font-medium hover:underline transition-colors"
-                        >
-                          Marquer versée
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Générer les payes" size="lg">
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Début de période</label>
-              <input
-                type="date"
-                className="input"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label">Fin de période</label>
-              <input
-                type="date"
-                className="input"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Taux de taxes / charges (%)</label>
-            <div className="relative w-40">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                className="input pr-8"
-                value={taxRate}
-                onChange={(e) => setTaxRate(e.target.value)}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-sm">%</span>
-            </div>
-          </div>
-
-          {employees.length > 0 && (
-            <div>
-              <p className="label mb-3">Primes individuelles (optionnel)</p>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {employees.map((emp) => (
-                  <div key={emp.id} className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[var(--text)]">{emp.firstName} {emp.lastName}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{emp.grade.name} — {emp.grade.salaryPercent}%</p>
-                    </div>
-                    <div className="relative w-32">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="input text-sm pr-8"
-                        placeholder="0"
-                        value={bonuses[emp.id] ?? ""}
-                        onChange={(e) => setBonuses((prev) => ({ ...prev, [emp.id]: e.target.value }))}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-xs">$</span>
-                    </div>
-                  </div>
-                ))}
+      <Dialog open={modal} onOpenChange={v => !v && setModal(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Générer les payes</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Semaine</Label>
+                <Input type="number" min="1" max="53" value={weekNumber} onChange={e => setWeekNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Année</Label>
+                <Input type="number" min="2020" value={year} onChange={e => setYear(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Taux taxes (%)</Label>
+                <Input type="number" min="0" max="100" step="0.1" value={taxRate} onChange={e => setTaxRate(e.target.value)} />
               </div>
             </div>
-          )}
 
-          <div className="rounded-xl bg-[var(--bg)] border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
-            Le système va calculer automatiquement pour chaque employé actif : CA réalisé × % du grade = salaire brut, puis appliquer les taxes et primes.
-          </div>
+            {employees.length > 0 && (
+              <div>
+                <Label className="mb-2 block">Primes individuelles (optionnel)</Label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {employees.map(emp => (
+                    <div key={emp.id} className="flex items-center gap-3">
+                      <div className="flex-1 text-sm">
+                        <p className="font-medium">{emp.firstName} {emp.lastName}</p>
+                        <p className="text-xs text-muted-foreground">{emp.grade.name} · {emp.grade.salaryPercent}%</p>
+                      </div>
+                      <Input type="number" min="0" step="0.01" className="w-28 h-8 text-xs" placeholder="0"
+                        value={bonuses[emp.id] ?? ""} onChange={e => setBonuses(p => ({ ...p, [emp.id]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="flex gap-3 pt-1">
-            <button onClick={() => setModal(false)} className="btn-secondary flex-1">Annuler</button>
-            <button
-              onClick={generate}
-              disabled={loading || !periodStart || !periodEnd}
-              className="btn-primary flex-1"
-            >
-              {loading ? "Génération..." : "Générer"}
-            </button>
+            <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+              Calcul : (CA − coût revient) × % grade = brut. Taxes déduites, primes ajoutées.
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
+              <Button className="flex-1" onClick={generate} disabled={loading || !weekNumber || !year}>
+                {loading ? "Génération..." : "Générer"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

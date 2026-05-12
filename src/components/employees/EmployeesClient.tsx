@@ -1,16 +1,21 @@
 "use client"
-
 import { useState } from "react"
 import { UserPlus, UserCheck, UserX, Pencil, Award, CreditCard, Trash2, Key, Phone, Settings } from "lucide-react"
-import Modal from "@/components/ui/Modal"
 import { useRouter } from "next/navigation"
 import { formatDate } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Grade { id: string; name: string; salaryPercent: number }
 interface Employee {
-  id: string; firstName: string; lastName: string
-  phone: string | null; accountNumber: string | null
-  isActive: boolean; hiredAt: Date
+  id: string; firstName: string; lastName: string; phone: string | null
+  accountNumber: string | null; isActive: boolean; hiredAt: Date
   grade: Grade; user: { email: string; id: string }
 }
 interface Props { employees: Employee[]; grades: Grade[]; currency: string; restaurantId: string }
@@ -57,7 +62,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     try {
       const res = await fetch(`/api/employees/grades/${selectedGrade.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: gradeForm.name, salaryPercent: parseFloat(gradeForm.salaryPercent) }) })
       if (!res.ok) throw new Error("Erreur")
-      setModal(null); setSelectedGrade(null); router.refresh()
+      setModal(null); router.refresh()
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }
@@ -66,28 +71,18 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     if (!selectedEmp) return
     setLoading(true); setError("")
     try {
-      const res = await fetch(`/api/employees/${selectedEmp.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gradeId: editEmpForm.gradeId || undefined,
-          phone: editEmpForm.phone,
-          accountNumber: editEmpForm.accountNumber,
-        }),
-      })
+      const res = await fetch(`/api/employees/${selectedEmp.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gradeId: editEmpForm.gradeId || undefined, phone: editEmpForm.phone, accountNumber: editEmpForm.accountNumber }) })
       if (!res.ok) throw new Error("Erreur")
-      setModal(null); setSelectedEmp(null); router.refresh()
+      setModal(null); router.refresh()
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }
 
   async function resetPassword() {
-    if (!selectedEmp || !newPassword) return
+    if (!selectedEmp || newPassword.length < 6) return
     setLoading(true); setError("")
     try {
-      const res = await fetch(`/api/employees/${selectedEmp.id}/reset-password`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPassword }),
-      })
+      const res = await fetch(`/api/employees/${selectedEmp.id}/reset-password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPassword }) })
       if (!res.ok) throw new Error("Erreur")
       setModal(null); setNewPassword(""); router.refresh()
     } catch (e: any) { setError(e.message) }
@@ -95,7 +90,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
   }
 
   async function deleteEmployee(emp: Employee) {
-    if (!confirm(`Supprimer définitivement ${emp.firstName} ${emp.lastName} ? Cette action est irréversible.`)) return
+    if (!confirm(`Supprimer définitivement ${emp.firstName} ${emp.lastName} ?`)) return
     await fetch(`/api/employees/${emp.id}`, { method: "DELETE" })
     router.refresh()
   }
@@ -105,230 +100,199 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     router.refresh()
   }
 
-  function openEditGrade(grade: Grade) {
-    setSelectedGrade(grade); setGradeForm({ name: grade.name, salaryPercent: String(grade.salaryPercent) }); setError(""); setModal("editGrade")
-  }
-
-  function openEditEmp(emp: Employee) {
-    setSelectedEmp(emp)
-    setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" })
-    setError(""); setModal("editEmp")
-  }
-
-  function openResetPwd(emp: Employee) {
-    setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd")
-  }
-
   return (
-    <div className="animate-up">
-      <div className="page-header">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Employés</h1>
-          <p className="page-sub">{employees.filter(e => e.isActive).length} actif{employees.filter(e=>e.isActive).length>1?"s":""} · {employees.length} au total</p>
+          <h1 className="text-2xl font-bold tracking-tight">Employés</h1>
+          <p className="text-sm text-muted-foreground mt-1">{employees.filter(e => e.isActive).length} actifs · {employees.length} au total</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => { setGradeForm(EMPTY_GRADE); setError(""); setModal("grade") }} className="btn-ghost"><Award size={14} /> Nouveau grade</button>
-          <button onClick={() => { setEmpForm(EMPTY_EMP); setError(""); setModal("create") }} className="btn-primary"><UserPlus size={14} /> Ajouter</button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setGradeForm(EMPTY_GRADE); setError(""); setModal("grade") }}>
+            <Award className="h-4 w-4" /> Nouveau grade
+          </Button>
+          <Button onClick={() => { setEmpForm(EMPTY_EMP); setError(""); setModal("create") }}>
+            <UserPlus className="h-4 w-4" /> Ajouter
+          </Button>
         </div>
       </div>
 
       {/* Grades */}
       {grades.length > 0 && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <span className="section-title">Grades</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Grades</p>
+          <div className="flex gap-2 flex-wrap">
             {grades.map(g => (
-              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
-                <Award size={13} style={{ color: "var(--accent)" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{g.name}</span>
-                <span className="badge badge-accent">{g.salaryPercent}%</span>
-                <button onClick={() => openEditGrade(g)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-subtle)", display: "flex", padding: 2 }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color="var(--text)"}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color="var(--text-subtle)"}>
-                  <Pencil size={12} />
-                </button>
+              <div key={g.id} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                <Award className="h-3.5 w-3.5 text-primary" />
+                <span className="text-sm font-medium">{g.name}</span>
+                <Badge variant="default" className="text-[10px]">{g.salaryPercent}%</Badge>
+                <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => { setSelectedGrade(g); setGradeForm({ name: g.name, salaryPercent: String(g.salaryPercent) }); setError(""); setModal("editGrade") }}>
+                  <Pencil className="h-3 w-3" />
+                </Button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Team grid */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-        <span className="section-title">Équipe</span>
-        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      </div>
+      <Separator />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
+      {/* Employees grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {employees.map(emp => (
-          <div key={emp.id} className="card" style={{ padding: 16, opacity: emp.isActive ? 1 : 0.5, transition: "border-color 0.15s" }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border-mid)"}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(108,99,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
-                {emp.firstName[0]}{emp.lastName[0]}
+          <Card key={emp.id} className={emp.isActive ? "" : "opacity-60"}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
+                  {emp.firstName[0]}{emp.lastName[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{emp.firstName} {emp.lastName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{emp.user.email}</p>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.firstName} {emp.lastName}</p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.user.email}</p>
-              </div>
-            </div>
 
-            {/* Badges */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-              <span className="badge badge-accent"><Award size={9} /> {emp.grade.name}</span>
-              <span className="badge badge-muted">{emp.grade.salaryPercent}% CA net</span>
-              {!emp.isActive && <span className="badge badge-red">Inactif</span>}
-            </div>
-
-            {/* Infos */}
-            {emp.accountNumber && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", marginBottom: 3 }}>
-                <CreditCard size={11} />
-                <span style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.05em" }}>{emp.accountNumber}</span>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="default" className="gap-1 text-[11px]"><Award className="h-3 w-3" />{emp.grade.name}</Badge>
+                <Badge variant="secondary" className="text-[11px]">{emp.grade.salaryPercent}% CA net</Badge>
+                {!emp.isActive && <Badge variant="destructive" className="text-[11px]">Inactif</Badge>}
               </div>
-            )}
-            {emp.phone && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", marginBottom: 3 }}>
-                <Phone size={11} /><span>{emp.phone}</span>
-              </div>
-            )}
-            <p style={{ fontSize: 11, color: "var(--text-subtle)", marginBottom: 14 }}>Recruté le {formatDate(emp.hiredAt)}</p>
 
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-              <button onClick={() => toggleActive(emp.id, emp.isActive)} className="btn-ghost" style={{ height: 28, padding: "0 10px", fontSize: 12, flex: 1 }} title={emp.isActive ? "Désactiver" : "Activer"}>
-                {emp.isActive ? <><UserCheck size={12} style={{ color: "var(--green)" }} /> Actif</> : <><UserX size={12} style={{ color: "var(--red)" }} /> Inactif</>}
-              </button>
-              <button onClick={() => openEditEmp(emp)} className="btn-ghost" style={{ height: 28, width: 28, padding: 0 }} title="Modifier">
-                <Settings size={13} />
-              </button>
-              <button onClick={() => openResetPwd(emp)} className="btn-ghost" style={{ height: 28, width: 28, padding: 0 }} title="Réinitialiser mot de passe">
-                <Key size={13} />
-              </button>
-              <button onClick={() => deleteEmployee(emp)} className="btn-danger" style={{ height: 28, width: 28, padding: 0 }} title="Supprimer définitivement">
-                <Trash2 size={13} />
-              </button>
-            </div>
-          </div>
+              {(emp.accountNumber || emp.phone) && (
+                <div className="space-y-1">
+                  {emp.accountNumber && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><CreditCard className="h-3 w-3" /><span className="font-mono">{emp.accountNumber}</span></div>}
+                  {emp.phone && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Phone className="h-3 w-3" />{emp.phone}</div>}
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground">Recruté le {formatDate(emp.hiredAt)}</p>
+
+              <Separator />
+              <div className="flex gap-1.5">
+                <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => toggleActive(emp.id, emp.isActive)}>
+                  {emp.isActive ? <><UserCheck className="h-3.5 w-3.5 text-emerald-500" /> Actif</> : <><UserX className="h-3.5 w-3.5 text-destructive" /> Inactif</>}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Modifier" onClick={() => { setSelectedEmp(emp); setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" }); setError(""); setModal("editEmp") }}>
+                  <Settings className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Réinitialiser MDP" onClick={() => { setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd") }}>
+                  <Key className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" title="Supprimer" onClick={() => deleteEmployee(emp)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ))}
-
-        {employees.length === 0 && (
-          <div className="card" style={{ gridColumn: "1/-1", padding: 48, textAlign: "center" }}>
-            <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>Aucun employé</p>
-            <button onClick={() => setModal("create")} className="btn-primary">Ajouter le premier employé</button>
-          </div>
-        )}
       </div>
 
       {/* Modal: create employee */}
-      <Modal open={modal === "create"} onClose={() => setModal(null)} title="Ajouter un employé">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div><label className="label">Prénom</label><input className="input" value={empForm.firstName} onChange={e => setEmpForm({ ...empForm, firstName: e.target.value })} /></div>
-            <div><label className="label">Nom</label><input className="input" value={empForm.lastName} onChange={e => setEmpForm({ ...empForm, lastName: e.target.value })} /></div>
+      <Dialog open={modal === "create"} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Ajouter un employé</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>Prénom</Label><Input value={empForm.firstName} onChange={e => setEmpForm({ ...empForm, firstName: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Nom</Label><Input value={empForm.lastName} onChange={e => setEmpForm({ ...empForm, lastName: e.target.value })} /></div>
+            </div>
+            <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={empForm.email} onChange={e => setEmpForm({ ...empForm, email: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Mot de passe</Label><Input type="password" value={empForm.password} onChange={e => setEmpForm({ ...empForm, password: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>Téléphone</Label><Input value={empForm.phone} onChange={e => setEmpForm({ ...empForm, phone: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>N° compte</Label><Input value={empForm.accountNumber} onChange={e => setEmpForm({ ...empForm, accountNumber: e.target.value })} /></div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Grade</Label>
+              <Select value={empForm.gradeId} onValueChange={v => setEmpForm({ ...empForm, gradeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un grade" /></SelectTrigger>
+                <SelectContent>{grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={createEmployee} disabled={loading}>{loading ? "Création..." : "Créer"}</Button>
+            </div>
           </div>
-          <div><label className="label">Email de connexion</label><input type="email" className="input" value={empForm.email} onChange={e => setEmpForm({ ...empForm, email: e.target.value })} /></div>
-          <div><label className="label">Mot de passe initial</label><input type="password" className="input" value={empForm.password} onChange={e => setEmpForm({ ...empForm, password: e.target.value })} /></div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div><label className="label">Téléphone</label><input className="input" value={empForm.phone} onChange={e => setEmpForm({ ...empForm, phone: e.target.value })} /></div>
-            <div><label className="label">N° de compte</label><input className="input" placeholder="ex: 1234-5678" value={empForm.accountNumber} onChange={e => setEmpForm({ ...empForm, accountNumber: e.target.value })} /></div>
-          </div>
-          <div>
-            <label className="label">Grade</label>
-            <select className="input" value={empForm.gradeId} onChange={e => setEmpForm({ ...empForm, gradeId: e.target.value })}>
-              <option value="">Sélectionner un grade</option>
-              {grades.map(g => <option key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</option>)}
-            </select>
-          </div>
-          {error && <p style={{ fontSize: 13, color: "var(--red)" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={createEmployee} disabled={loading} className="btn-primary" style={{ flex: 1 }}>{loading ? "Création..." : "Créer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: edit employee */}
-      <Modal open={modal === "editEmp"} onClose={() => setModal(null)} title={`Modifier — ${selectedEmp?.firstName} ${selectedEmp?.lastName}`} size="sm">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label className="label">Grade</label>
-            <select className="input" value={editEmpForm.gradeId} onChange={e => setEditEmpForm({ ...editEmpForm, gradeId: e.target.value })}>
-              {grades.map(g => <option key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</option>)}
-            </select>
+      <Dialog open={modal === "editEmp"} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Modifier — {selectedEmp?.firstName} {selectedEmp?.lastName}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Grade</Label>
+              <Select value={editEmpForm.gradeId} onValueChange={v => setEditEmpForm({ ...editEmpForm, gradeId: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>Téléphone</Label><Input value={editEmpForm.phone} onChange={e => setEditEmpForm({ ...editEmpForm, phone: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>N° compte bancaire</Label><Input value={editEmpForm.accountNumber} onChange={e => setEditEmpForm({ ...editEmpForm, accountNumber: e.target.value })} /></div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={updateEmployee} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button>
+            </div>
           </div>
-          <div><label className="label">Téléphone</label><input className="input" value={editEmpForm.phone} onChange={e => setEditEmpForm({ ...editEmpForm, phone: e.target.value })} /></div>
-          <div><label className="label">N° de compte bancaire</label><input className="input" placeholder="ex: 1234-5678" value={editEmpForm.accountNumber} onChange={e => setEditEmpForm({ ...editEmpForm, accountNumber: e.target.value })} /></div>
-          {error && <p style={{ fontSize: 13, color: "var(--red)" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={updateEmployee} disabled={loading} className="btn-primary" style={{ flex: 1 }}>{loading ? "Enregistrement..." : "Enregistrer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: reset password */}
-      <Modal open={modal === "resetPwd"} onClose={() => setModal(null)} title={`Réinitialiser le mot de passe — ${selectedEmp?.firstName}`} size="sm">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--amber-dim)", border: "1px solid rgba(245,158,11,0.2)", fontSize: 13, color: "var(--amber)" }}>
-            Le mot de passe sera changé immédiatement. L'employé devra se reconnecter.
+      <Dialog open={modal === "resetPwd"} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Réinitialiser le mot de passe</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-500">Le mot de passe sera changé immédiatement.</div>
+            <div className="space-y-1.5"><Label>Nouveau mot de passe</Label><Input type="password" placeholder="Min. 6 caractères" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={resetPassword} disabled={loading || newPassword.length < 6}>{loading ? "..." : "Changer"}</Button>
+            </div>
           </div>
-          <div>
-            <label className="label">Nouveau mot de passe</label>
-            <input type="password" className="input" placeholder="Minimum 6 caractères" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-          </div>
-          {error && <p style={{ fontSize: 13, color: "var(--red)" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={resetPassword} disabled={loading || newPassword.length < 6} className="btn-primary" style={{ flex: 1 }}>{loading ? "Mise à jour..." : "Changer le mot de passe"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: create grade */}
-      <Modal open={modal === "grade"} onClose={() => setModal(null)} title="Nouveau grade" size="sm">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div><label className="label">Nom du grade</label><input className="input" placeholder="Serveur, Manager..." value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
-          <div>
-            <label className="label">Pourcentage du CA net</label>
-            <div style={{ position: "relative" }}>
-              <input type="number" min="0" max="100" step="0.1" className="input" style={{ paddingRight: 32 }} value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} />
-              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 13 }}>%</span>
+      <Dialog open={modal === "grade"} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Nouveau grade</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Nom du grade</Label><Input placeholder="Serveur, Manager..." value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Pourcentage du CA net (%)</Label><Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} /></div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={createGrade} disabled={loading}>{loading ? "..." : "Créer"}</Button>
             </div>
           </div>
-          {error && <p style={{ fontSize: 13, color: "var(--red)" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={createGrade} disabled={loading} className="btn-primary" style={{ flex: 1 }}>{loading ? "..." : "Créer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: edit grade */}
-      <Modal open={modal === "editGrade"} onClose={() => setModal(null)} title="Modifier le grade" size="sm">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div><label className="label">Nom</label><input className="input" value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
-          <div>
-            <label className="label">Pourcentage du CA net</label>
-            <div style={{ position: "relative" }}>
-              <input type="number" min="0" max="100" step="0.1" className="input" style={{ paddingRight: 32 }} value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} />
-              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 13 }}>%</span>
+      <Dialog open={modal === "editGrade"} onOpenChange={v => !v && setModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Modifier le grade</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5"><Label>Nom</Label><Input value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
+            <div className="space-y-1.5">
+              <Label>Pourcentage du CA net (%)</Label>
+              <Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Affecte tous les employés avec ce grade</p>
             </div>
-            <p style={{ fontSize: 12, color: "var(--text-subtle)", marginTop: 6 }}>Affecte tous les employés avec ce grade</p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={updateGrade} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button>
+            </div>
           </div>
-          {error && <p style={{ fontSize: 13, color: "var(--red)" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModal(null)} className="btn-ghost" style={{ flex: 1 }}>Annuler</button>
-            <button onClick={updateGrade} disabled={loading} className="btn-primary" style={{ flex: 1 }}>{loading ? "..." : "Enregistrer"}</button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

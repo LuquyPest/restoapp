@@ -1,69 +1,50 @@
 "use client"
-
 import { formatCurrency } from "@/lib/utils"
 import { Package } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Product { name: string; category: string; qty: number; revenue: number; cost: number; margin: number }
-interface Props { products: Product[]; currency: string }
-
-export default function ProductSalesClient({ products, currency }: Props) {
+export default function ProductSalesClient({ products, currency }: { products: Product[]; currency: string }) {
   const fmt = (n: number) => formatCurrency(n, currency)
   const totalRevenue = products.reduce((s, p) => s + p.revenue, 0)
   const totalQty = products.reduce((s, p) => s + p.qty, 0)
 
   return (
-    <div className="animate-up">
-      <div style={{ marginBottom: 28 }}>
-        <h1 className="page-title">Ventes par produit</h1>
-        <p className="page-sub">{totalQty} articles vendus · {fmt(totalRevenue)} de CA cette semaine</p>
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Ventes par produit</h1>
+        <p className="text-sm text-muted-foreground mt-1">{totalQty} articles vendus · {fmt(totalRevenue)} de CA cette semaine</p>
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Produit</th>
-              <th>Catégorie</th>
-              <th>Qté vendue</th>
-              <th>CA généré</th>
-              <th>Coût revient</th>
-              <th>Marge</th>
-              <th>% du CA total</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader><TableRow><TableHead>Produit</TableHead><TableHead>Catégorie</TableHead><TableHead>Qté</TableHead><TableHead>CA</TableHead><TableHead>Coût</TableHead><TableHead>Marge</TableHead><TableHead>% CA</TableHead></TableRow></TableHeader>
+          <TableBody>
             {products.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Aucune vente cette semaine</td></tr>
+              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucune vente</TableCell></TableRow>
             ) : products.map((p, i) => (
-              <tr key={i}>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Package size={13} style={{ color: "var(--accent)" }} />
+              <TableRow key={i}>
+                <TableCell><div className="flex items-center gap-2"><div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><Package className="h-3.5 w-3.5 text-primary" /></div><span className="font-semibold">{p.name}</span></div></TableCell>
+                <TableCell><Badge variant="secondary">{p.category}</Badge></TableCell>
+                <TableCell className="font-bold">{p.qty}</TableCell>
+                <TableCell className="font-bold">{fmt(p.revenue)}</TableCell>
+                <TableCell className="text-amber-500">−{fmt(p.cost)}</TableCell>
+                <TableCell className={`font-bold ${p.margin >= 0 ? "text-emerald-500" : "text-destructive"}`}>{fmt(p.margin)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden max-w-20">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0}%` }} />
                     </div>
-                    <span style={{ fontWeight: 600 }}>{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{totalRevenue > 0 ? ((p.revenue / totalRevenue) * 100).toFixed(1) : 0}%</span>
                   </div>
-                </td>
-                <td><span className="badge badge-muted">{p.category}</span></td>
-                <td style={{ fontWeight: 700 }}>{p.qty}</td>
-                <td style={{ fontWeight: 700 }}>{fmt(p.revenue)}</td>
-                <td style={{ color: "var(--amber)" }}>−{fmt(p.cost)}</td>
-                <td style={{ fontWeight: 700, color: p.margin >= 0 ? "var(--green)" : "var(--red)" }}>{fmt(p.margin)}</td>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, height: 4, background: "var(--bg-hover)", borderRadius: 2, overflow: "hidden", maxWidth: 80 }}>
-                      <div style={{ height: "100%", background: "var(--accent)", borderRadius: 2, width: `${totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0}%` }} />
-                    </div>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)", minWidth: 36 }}>
-                      {totalRevenue > 0 ? ((p.revenue / totalRevenue) * 100).toFixed(1) : 0}%
-                    </span>
-                  </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }

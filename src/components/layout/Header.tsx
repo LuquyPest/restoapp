@@ -1,26 +1,18 @@
 "use client"
 
 import { Moon, Sun } from "lucide-react"
-import { useTheme } from "@/components/layout/ThemeProvider"
+import { useTheme } from "next-themes"
 
 export default function Header({ title }: { title?: string }) {
-  const { theme, toggle } = useTheme()
+  const { theme, setTheme } = useTheme()
   return (
-    <header style={{
-      height: 52, display: "flex", alignItems: "center", justifyContent: "flex-end",
-      padding: "0 24px", borderBottom: "1px solid var(--border)",
-      background: "var(--bg-card)", position: "sticky", top: 0, zIndex: 20,
-    }}>
-      <button onClick={toggle} style={{
-        width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)",
-        background: "transparent", cursor: "pointer", color: "var(--text-muted)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        transition: "all 0.15s",
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-mid)"; (e.currentTarget as HTMLElement).style.color = "var(--text)"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; }}
+    <header className="h-14 flex items-center justify-end px-6 border-b bg-card sticky top-0 z-20">
+      <button
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        className="h-8 w-8 rounded-lg border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border/80 transition-all"
       >
-        {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        <Sun className="h-3.5 w-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-3.5 w-3.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
       </button>
     </header>
   )
