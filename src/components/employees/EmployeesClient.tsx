@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-interface Grade { id: string; name: string; salaryPercent: number }
+interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
   id: string; firstName: string; lastName: string; phone: string | null
   accountNumber: string | null; isActive: boolean; hiredAt: Date
@@ -21,7 +21,7 @@ interface Employee {
 interface Props { employees: Employee[]; grades: Grade[]; currency: string; restaurantId: string }
 
 const EMPTY_EMP = { firstName: "", lastName: "", email: "", password: "", gradeId: "", phone: "", accountNumber: "" }
-const EMPTY_GRADE = { name: "", salaryPercent: "" }
+const EMPTY_GRADE = { name: "", salaryPercent: "", dividendPercent: "" }
 
 export default function EmployeesClient({ employees, grades, restaurantId }: Props) {
   const router = useRouter()
@@ -49,7 +49,10 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
   async function createGrade() {
     setLoading(true); setError("")
     try {
-      const res = await fetch("/api/employees/grades", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: gradeForm.name, salaryPercent: parseFloat(gradeForm.salaryPercent) }) })
+      const res = await fetch("/api/employees/grades", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: gradeForm.name, salaryPercent: parseFloat(gradeForm.salaryPercent), dividendPercent: parseFloat(gradeForm.dividendPercent || "0") }),
+      })
       if (!res.ok) throw new Error("Erreur")
       setModal(null); setGradeForm(EMPTY_GRADE); router.refresh()
     } catch (e: any) { setError(e.message) }
@@ -60,7 +63,10 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     if (!selectedGrade) return
     setLoading(true); setError("")
     try {
-      const res = await fetch(`/api/employees/grades/${selectedGrade.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: gradeForm.name, salaryPercent: parseFloat(gradeForm.salaryPercent) }) })
+      const res = await fetch(`/api/employees/grades/${selectedGrade.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: gradeForm.name, salaryPercent: parseFloat(gradeForm.salaryPercent), dividendPercent: parseFloat(gradeForm.dividendPercent || "0") }),
+      })
       if (!res.ok) throw new Error("Erreur")
       setModal(null); router.refresh()
     } catch (e: any) { setError(e.message) }
@@ -71,7 +77,10 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     if (!selectedEmp) return
     setLoading(true); setError("")
     try {
-      const res = await fetch(`/api/employees/${selectedEmp.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gradeId: editEmpForm.gradeId || undefined, phone: editEmpForm.phone, accountNumber: editEmpForm.accountNumber }) })
+      const res = await fetch(`/api/employees/${selectedEmp.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gradeId: editEmpForm.gradeId || undefined, phone: editEmpForm.phone, accountNumber: editEmpForm.accountNumber }),
+      })
       if (!res.ok) throw new Error("Erreur")
       setModal(null); router.refresh()
     } catch (e: any) { setError(e.message) }
@@ -91,8 +100,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
 
   async function deleteEmployee(emp: Employee) {
     if (!confirm(`Supprimer définitivement ${emp.firstName} ${emp.lastName} ?`)) return
-    await fetch(`/api/employees/${emp.id}`, { method: "DELETE" })
-    router.refresh()
+    await fetch(`/api/employees/${emp.id}`, { method: "DELETE" }); router.refresh()
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -108,12 +116,8 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
           <p className="text-sm text-muted-foreground mt-1">{employees.filter(e => e.isActive).length} actifs · {employees.length} au total</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setGradeForm(EMPTY_GRADE); setError(""); setModal("grade") }}>
-            <Award className="h-4 w-4" /> Nouveau grade
-          </Button>
-          <Button onClick={() => { setEmpForm(EMPTY_EMP); setError(""); setModal("create") }}>
-            <UserPlus className="h-4 w-4" /> Ajouter
-          </Button>
+          <Button variant="outline" onClick={() => { setGradeForm(EMPTY_GRADE); setError(""); setModal("grade") }}><Award className="h-4 w-4" /> Nouveau grade</Button>
+          <Button onClick={() => { setEmpForm(EMPTY_EMP); setError(""); setModal("create") }}><UserPlus className="h-4 w-4" /> Ajouter</Button>
         </div>
       </div>
 
@@ -126,8 +130,9 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
               <div key={g.id} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
                 <Award className="h-3.5 w-3.5 text-primary" />
                 <span className="text-sm font-medium">{g.name}</span>
-                <Badge variant="default" className="text-[10px]">{g.salaryPercent}%</Badge>
-                <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => { setSelectedGrade(g); setGradeForm({ name: g.name, salaryPercent: String(g.salaryPercent) }); setError(""); setModal("editGrade") }}>
+                <Badge variant="default" className="text-[10px]">{g.salaryPercent}% salaire</Badge>
+                {g.dividendPercent > 0 && <Badge variant="secondary" className="text-[10px]">{g.dividendPercent}% dividende</Badge>}
+                <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => { setSelectedGrade(g); setGradeForm({ name: g.name, salaryPercent: String(g.salaryPercent), dividendPercent: String(g.dividendPercent ?? 0) }); setError(""); setModal("editGrade") }}>
                   <Pencil className="h-3 w-3" />
                 </Button>
               </div>
@@ -152,46 +157,38 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
                   <p className="text-xs text-muted-foreground truncate">{emp.user.email}</p>
                 </div>
               </div>
-
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="default" className="gap-1 text-[11px]"><Award className="h-3 w-3" />{emp.grade.name}</Badge>
-                <Badge variant="secondary" className="text-[11px]">{emp.grade.salaryPercent}% CA net</Badge>
+                <Badge variant="secondary" className="text-[11px]">{emp.grade.salaryPercent}% salaire</Badge>
+                {(emp.grade.dividendPercent ?? 0) > 0 && <Badge variant="outline" className="text-[11px]">{emp.grade.dividendPercent}% dividende</Badge>}
                 {!emp.isActive && <Badge variant="destructive" className="text-[11px]">Inactif</Badge>}
               </div>
-
-              {(emp.accountNumber || emp.phone) && (
-                <div className="space-y-1">
-                  {emp.accountNumber && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><CreditCard className="h-3 w-3" /><span className="font-mono">{emp.accountNumber}</span></div>}
-                  {emp.phone && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Phone className="h-3 w-3" />{emp.phone}</div>}
-                </div>
-              )}
-
+              {emp.accountNumber && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><CreditCard className="h-3 w-3" /><span className="font-mono">{emp.accountNumber}</span></div>}
+              {emp.phone && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Phone className="h-3 w-3" />{emp.phone}</div>}
               <p className="text-[11px] text-muted-foreground">Recruté le {formatDate(emp.hiredAt)}</p>
-
               <Separator />
               <div className="flex gap-1.5">
                 <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => toggleActive(emp.id, emp.isActive)}>
                   {emp.isActive ? <><UserCheck className="h-3.5 w-3.5 text-emerald-500" /> Actif</> : <><UserX className="h-3.5 w-3.5 text-destructive" /> Inactif</>}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Modifier" onClick={() => { setSelectedEmp(emp); setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" }); setError(""); setModal("editEmp") }}>
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Réinitialiser MDP" onClick={() => { setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd") }}>
-                  <Key className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" title="Supprimer" onClick={() => deleteEmployee(emp)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" }); setError(""); setModal("editEmp") }}><Settings className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd") }}><Key className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => deleteEmployee(emp)}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </CardContent>
           </Card>
         ))}
+        {employees.length === 0 && (
+          <div className="col-span-full rounded-xl border bg-card p-12 text-center">
+            <p className="text-muted-foreground mb-4">Aucun employé</p>
+            <Button onClick={() => setModal("create")}>Ajouter le premier employé</Button>
+          </div>
+        )}
       </div>
 
-      {/* Modal: create employee */}
+      {/* Modals */}
       <Dialog open={modal === "create"} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Ajouter un employé</DialogTitle></DialogHeader>
+        <DialogContent><DialogHeader><DialogTitle>Ajouter un employé</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Prénom</Label><Input value={empForm.firstName} onChange={e => setEmpForm({ ...empForm, firstName: e.target.value })} /></div>
@@ -203,29 +200,22 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
               <div className="space-y-1.5"><Label>Téléphone</Label><Input value={empForm.phone} onChange={e => setEmpForm({ ...empForm, phone: e.target.value })} /></div>
               <div className="space-y-1.5"><Label>N° compte</Label><Input value={empForm.accountNumber} onChange={e => setEmpForm({ ...empForm, accountNumber: e.target.value })} /></div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Grade</Label>
+            <div className="space-y-1.5"><Label>Grade</Label>
               <Select value={empForm.gradeId} onValueChange={v => setEmpForm({ ...empForm, gradeId: v })}>
                 <SelectTrigger><SelectValue placeholder="Sélectionner un grade" /></SelectTrigger>
                 <SelectContent>{grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
-              <Button className="flex-1" onClick={createEmployee} disabled={loading}>{loading ? "Création..." : "Créer"}</Button>
-            </div>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={createEmployee} disabled={loading}>{loading ? "Création..." : "Créer"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal: edit employee */}
       <Dialog open={modal === "editEmp"} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Modifier — {selectedEmp?.firstName} {selectedEmp?.lastName}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Modifier — {selectedEmp?.firstName} {selectedEmp?.lastName}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Grade</Label>
+            <div className="space-y-1.5"><Label>Grade</Label>
               <Select value={editEmpForm.gradeId} onValueChange={v => setEditEmpForm({ ...editEmpForm, gradeId: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name} — {g.salaryPercent}%</SelectItem>)}</SelectContent>
@@ -234,62 +224,47 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
             <div className="space-y-1.5"><Label>Téléphone</Label><Input value={editEmpForm.phone} onChange={e => setEditEmpForm({ ...editEmpForm, phone: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>N° compte bancaire</Label><Input value={editEmpForm.accountNumber} onChange={e => setEditEmpForm({ ...editEmpForm, accountNumber: e.target.value })} /></div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
-              <Button className="flex-1" onClick={updateEmployee} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button>
-            </div>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={updateEmployee} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal: reset password */}
       <Dialog open={modal === "resetPwd"} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Réinitialiser le mot de passe</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Réinitialiser le mot de passe</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-500">Le mot de passe sera changé immédiatement.</div>
             <div className="space-y-1.5"><Label>Nouveau mot de passe</Label><Input type="password" placeholder="Min. 6 caractères" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
-              <Button className="flex-1" onClick={resetPassword} disabled={loading || newPassword.length < 6}>{loading ? "..." : "Changer"}</Button>
-            </div>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={resetPassword} disabled={loading || newPassword.length < 6}>{loading ? "..." : "Changer"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal: create grade */}
       <Dialog open={modal === "grade"} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Nouveau grade</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Nouveau grade</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5"><Label>Nom du grade</Label><Input placeholder="Serveur, Manager..." value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
-            <div className="space-y-1.5"><Label>Pourcentage du CA net (%)</Label><Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} /></div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
-              <Button className="flex-1" onClick={createGrade} disabled={loading}>{loading ? "..." : "Créer"}</Button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>% Salaire (du CA net)</Label><Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>% Dividende (du total)</Label><Input type="number" min="0" max="100" step="0.1" placeholder="0" value={gradeForm.dividendPercent} onChange={e => setGradeForm({ ...gradeForm, dividendPercent: e.target.value })} /></div>
             </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={createGrade} disabled={loading}>{loading ? "..." : "Créer"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal: edit grade */}
       <Dialog open={modal === "editGrade"} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Modifier le grade</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Modifier le grade</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5"><Label>Nom</Label><Input value={gradeForm.name} onChange={e => setGradeForm({ ...gradeForm, name: e.target.value })} /></div>
-            <div className="space-y-1.5">
-              <Label>Pourcentage du CA net (%)</Label>
-              <Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Affecte tous les employés avec ce grade</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>% Salaire (du CA net)</Label><Input type="number" min="0" max="100" step="0.1" value={gradeForm.salaryPercent} onChange={e => setGradeForm({ ...gradeForm, salaryPercent: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>% Dividende (du total)</Label><Input type="number" min="0" max="100" step="0.1" placeholder="0" value={gradeForm.dividendPercent} onChange={e => setGradeForm({ ...gradeForm, dividendPercent: e.target.value })} /></div>
             </div>
+            <p className="text-xs text-muted-foreground">Affecte tous les employés avec ce grade</p>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
-              <Button className="flex-1" onClick={updateGrade} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button>
-            </div>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={updateGrade} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

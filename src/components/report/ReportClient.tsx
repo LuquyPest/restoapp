@@ -1,14 +1,12 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
 import { formatCurrency } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Save, Download, Award, CreditCard } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Separator } from "@/components/ui/separator"
+import BarChart from "@/components/ui/BarChart"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -17,74 +15,273 @@ function getISOWeek(d: Date) {
   return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
 }
 
-interface EmployeeStat {
-  employeeId: string; firstName: string; lastName: string
-  grade: string; salaryPercent: number; accountNumber: string | null
-  revenue: number; costRevenue: number; netRevenue: number; salary: number
-}
-
-interface PartnerStat { name: string; revenue: number; discount: number }
-
-interface ReportData {
-  weekNumber: number; year: number
-  revenue: number; costRevenue: number; totalSalaries: number
-  chargesDeductible: number; chargesNonDeductible: number
-  afterSalaries: number; grossProfit: number; taxes: number; netProfit: number
-  bonusTotal: number; afterBonus: number; dividendTotal: number; treasury: number; finalProfit: number
-  clientRevenue: number; partnerRevenue: number
-  taxRate: number; bonusRate: number; dividendRate: number
-  employeeStats: EmployeeStat[]
-  partnerSummary: PartnerStat[]
-  savedDividend: number; savedTreasury: number
-}
-
 interface Props { currency: string; taxRate: number; bonusRate: number; dividendRate: number }
 
 export default function ReportClient({ currency, taxRate: defaultTax, bonusRate: defaultBonus, dividendRate: defaultDividend }: Props) {
   const now = new Date()
   const [week, setWeek] = useState(getISOWeek(now))
   const [year, setYear] = useState(now.getFullYear())
-  const [data, setData] = useState<ReportData | null>(null)
+  const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [savedDividend, setSavedDividend] = useState("")
-  const [savedTreasury, setSavedTreasury] = useState("")
+  const [downloading, setDownloading] = useState(false)
   const fmt = (n: number) => formatCurrency(n, currency)
-  const pct = (n: number) => `${n.toFixed(2)}%`
+  const pct = (n: number) => `${n?.toFixed(2) ?? 0}%`
 
   const fetchReport = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(`/api/report?week=${week}&year=${year}`)
-      const d: ReportData = await res.json()
+      const d = await res.json()
       setData(d)
-      setSavedDividend(String(d.savedDividend.toFixed(2)))
-      setSavedTreasury(String(d.savedTreasury.toFixed(2)))
     } finally { setLoading(false) }
   }, [week, year])
 
   useEffect(() => { fetchReport() }, [fetchReport])
 
-  async function save() {
-    setSaving(true)
-    await fetch("/api/report", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ week, year, savedDividend: parseFloat(savedDividend) || 0, savedTreasury: parseFloat(savedTreasury) || 0 }),
-    })
-    setSaving(false); fetchReport()
+  async function saveAndDownload() {
+    if (!data) return
+    setDownloading(true)
+    // Save first
+    await fetch("/api/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week, year }) })
+    // Generate HTML
+    generateHTML()
+    setDownloading(false)
+  }
+
+  function generateHTML() {
+    if (!data) return
+    const c = currency
+    const f = (n: number) => `${c}${(n ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    const fd = (d: any) => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bilan S${String(week).padStart(2,"0")} ${year} — ${data.restaurantName}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px; }
+  h1 { font-size: 24px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb; text-transform: uppercase; letter-spacing: 0.05em; }
+  .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }
+  .card-title { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .card-value { font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.02em; }
+  .card-value.green { color: #16a34a; }
+  .card-value.red { color: #dc2626; }
+  .card-value.blue { color: #6c63ff; }
+  .card-value.amber { color: #d97706; }
+  .bilan-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+  .bilan-row.bold { font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+  .bilan-row.indent { padding-left: 16px; color: #6b7280; }
+  .bilan-row span:last-child { font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12px; }
+  th { background: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #16a34a; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+  .badge-amber { background: #fef3c7; color: #d97706; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 80px; margin: 12px 0; }
+  .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; background: #6c63ff; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar-label { font-size: 10px; color: #9ca3af; font-weight: 500; }
+  .section { margin-bottom: 36px; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+  .mono { font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+<h1>${data.restaurantName} — Bilan hebdomadaire</h1>
+<p class="subtitle">Semaine S${String(week).padStart(2,"0")} ${year} · Du ${data.weekStart} au ${data.weekEnd} · Généré le ${new Date().toLocaleDateString("fr-FR")}</p>
+
+<!-- KPIs -->
+<div class="grid3">
+  <div class="card"><div class="card-title">Chiffre d'affaires</div><div class="card-value blue">${f(data.revenue)}</div></div>
+  <div class="card"><div class="card-title">Bénéfice net</div><div class="card-value ${(data.netProfit ?? 0) >= 0 ? "green" : "red"}">${f(data.netProfit)}</div></div>
+  <div class="card"><div class="card-title">Trésorerie</div><div class="card-value">${f(data.treasury)}</div></div>
+</div>
+
+<!-- Ventes par jour -->
+<div class="section">
+<h2>Ventes par jour</h2>
+${(() => {
+  const maxVal = Math.max(...(data.dailyData ?? []).map((d: any) => d.value), 1)
+  return `<div class="bar-chart">${(data.dailyData ?? []).map((d: any) => {
+    const h = Math.max((d.value / maxVal) * 70, d.value > 0 ? 4 : 0)
+    return `<div class="bar-wrap"><div class="bar" style="height:${h}px" title="${f(d.value)}"></div><div class="bar-label">${d.label}</div></div>`
+  }).join("")}</div>`
+})()}
+<table><thead><tr><th>Jour</th><th>Date</th><th>CA</th></tr></thead><tbody>
+${(data.dailyData ?? []).map((d: any) => `<tr><td>${d.label}</td><td>${d.date}</td><td><strong>${f(d.value)}</strong></td></tr>`).join("")}
+</tbody></table>
+</div>
+
+<!-- Bilan financier -->
+<div class="section">
+<h2>Bilan financier</h2>
+<div class="grid3">
+<div class="card">
+  <div class="card-title" style="margin-bottom:12px">Compte de résultat</div>
+  <div class="bilan-row bold"><span>Chiffre d'affaires</span><span>${f(data.revenue)}</span></div>
+  <div class="bilan-row bold"><span>− Salaires</span><span style="color:#d97706">${f(data.totalSalaries)}</span></div>
+  <div class="bilan-row bold"><span>Bénéfice après salaires</span><span>${f(data.afterSalaries)}</span></div>
+  <div class="bilan-row bold"><span>− Charges déductibles</span><span style="color:#d97706">${f(data.chargesDeductible)}</span></div>
+  <div class="bilan-row bold"><span>Bénéfice brut</span><span>${f(data.grossProfit)}</span></div>
+  <div class="bilan-row indent"><span>− Impôts (${pct(data.taxRate)})</span><span style="color:#dc2626">${f(data.taxes)}</span></div>
+  <div class="bilan-row bold"><span>Bénéfice net</span><span style="color:#16a34a">${f(data.netProfit)}</span></div>
+  <div class="bilan-row indent"><span>− Prime employés (${pct(data.bonusRate)})</span><span style="color:#d97706">${f(data.bonusTotal)}</span></div>
+  <div class="bilan-row bold"><span>Après prime</span><span>${f(data.afterBonus)}</span></div>
+  <div class="bilan-row indent"><span>Dividendes (${pct(data.dividendRate)})</span><span>${f(data.dividendTotal)}</span></div>
+  <div class="bilan-row indent"><span>Trésorerie</span><span>${f(data.treasury)}</span></div>
+  <div class="bilan-row indent"><span>− Charges non déductibles</span><span style="color:#dc2626">${f(data.chargesNonDeductible)}</span></div>
+  <div class="bilan-row bold"><span>Bénéfice final</span><span style="color:${(data.finalProfit ?? 0) >= 0 ? "#16a34a" : "#dc2626"}">${f(data.finalProfit)}</span></div>
+</div>
+<div class="card">
+  <div class="card-title" style="margin-bottom:12px">Charges</div>
+  <div class="bilan-row bold"><span>Total déductibles</span><span>${f(data.chargesDeductible)}</span></div>
+  ${(data.charges ?? []).filter((c: any) => c.type === "DEDUCTIBLE").map((c: any) => `<div class="bilan-row indent"><span>${c.name}</span><span>${f(c.amount)}</span></div>`).join("")}
+  <div class="bilan-row bold" style="margin-top:8px"><span>Total non déductibles</span><span>${f(data.chargesNonDeductible)}</span></div>
+  ${(data.charges ?? []).filter((c: any) => c.type === "NON_DEDUCTIBLE").map((c: any) => `<div class="bilan-row indent"><span>${c.name}</span><span>${f(c.amount)}</span></div>`).join("")}
+</div>
+<div class="card">
+  <div class="card-title" style="margin-bottom:12px">Ventes</div>
+  <div class="bilan-row bold"><span>Clients directs</span><span>${f(data.clientRevenue)}</span></div>
+  <div class="bilan-row bold"><span>Partenaires</span><span>${f(data.partnerRevenue)}</span></div>
+  ${(data.partnerSummary ?? []).map((p: any) => `<div class="bilan-row indent"><span>${p.name}</span><span>${f(p.revenue)}</span></div>`).join("")}
+</div>
+</div>
+</div>
+
+<!-- Employés -->
+<div class="section">
+<h2>Employés</h2>
+<table><thead><tr><th>Nom</th><th>Grade</th><th>N° Compte</th><th>CA brut</th><th>Coût revient</th><th>CA net</th><th>% Salaire</th><th>Salaire</th><th>% Dividende</th><th>Dividende</th></tr></thead><tbody>
+${(data.employeeStats ?? []).map((e: any) => `
+<tr>
+  <td><strong>${e.firstName} ${e.lastName}</strong></td>
+  <td>${e.grade}</td>
+  <td class="mono">${e.accountNumber ?? "—"}</td>
+  <td>${f(e.revenue)}</td>
+  <td style="color:#d97706">−${f(e.costRevenue)}</td>
+  <td><strong>${f(e.netRevenue)}</strong></td>
+  <td><span class="badge badge-gray">${e.salaryPercent}%</span></td>
+  <td style="color:#16a34a"><strong>${f(e.salary)}</strong></td>
+  <td><span class="badge badge-gray">${e.dividendPercent ?? 0}%</span></td>
+  <td style="color:#6c63ff"><strong>${f(e.dividend ?? 0)}</strong></td>
+</tr>`).join("")}
+</tbody></table>
+</div>
+
+<!-- Ventes par produit -->
+<div class="section">
+<h2>Ventes par produit</h2>
+<table><thead><tr><th>Produit</th><th>Catégorie</th><th>Qté</th><th>CA</th><th>Coût</th><th>Marge</th></tr></thead><tbody>
+${(data.productStats ?? []).map((p: any) => `
+<tr>
+  <td><strong>${p.name}</strong></td>
+  <td>${p.category}</td>
+  <td>${p.qty}</td>
+  <td>${f(p.revenue)}</td>
+  <td style="color:#d97706">−${f(p.cost)}</td>
+  <td style="color:${(p.revenue - p.cost) >= 0 ? "#16a34a" : "#dc2626"}"><strong>${f(p.revenue - p.cost)}</strong></td>
+</tr>`).join("")}
+</tbody></table>
+</div>
+
+<!-- Partenaires -->
+<div class="section">
+<h2>Partenaires</h2>
+<table><thead><tr><th>Nom</th><th>Remise</th><th>Statut</th><th>CA semaine</th><th>Remise accordée</th></tr></thead><tbody>
+${(data.partners ?? []).map((p: any) => {
+  const stats = (data.partnerSummary ?? []).find((s: any) => s.name === p.name)
+  return `<tr>
+    <td><strong>${p.name}</strong></td>
+    <td>${p.discount}%</td>
+    <td><span class="badge ${p.isActive ? "badge-green" : "badge-gray"}">${p.isActive ? "Actif" : "Inactif"}</span></td>
+    <td>${stats ? f(stats.revenue) : "—"}</td>
+    <td style="color:#16a34a">${stats ? `−${f(stats.discount)}` : "—"}</td>
+  </tr>`
+}).join("")}
+</tbody></table>
+</div>
+
+<!-- Cartes de fidélité -->
+<div class="section">
+<h2>Cartes de fidélité</h2>
+<table><thead><tr><th>Client</th><th>Remise</th><th>Expire le</th><th>Statut</th></tr></thead><tbody>
+${(data.loyaltyCards ?? []).map((c: any) => {
+  const exp = new Date(c.expiresAt)
+  const expired = exp < new Date()
+  return `<tr>
+    <td><strong>${c.name}</strong></td>
+    <td>${c.discount}%</td>
+    <td>${fd(c.expiresAt)}</td>
+    <td><span class="badge ${expired ? "badge-red" : c.isActive ? "badge-green" : "badge-gray"}">${expired ? "EXPIRÉE" : c.isActive ? "Active" : "Inactive"}</span></td>
+  </tr>`
+}).join("")}
+</tbody></table>
+</div>
+
+<!-- Fournisseurs & Factures -->
+<div class="section">
+<h2>Fournisseurs</h2>
+<table><thead><tr><th>Nom</th><th>Contact</th><th>Email</th><th>Téléphone</th></tr></thead><tbody>
+${(data.suppliers ?? []).map((s: any) => `<tr><td><strong>${s.name}</strong></td><td>${s.contact ?? "—"}</td><td>${s.email ?? "—"}</td><td>${s.phone ?? "—"}</td></tr>`).join("")}
+</tbody></table>
+
+<h2>Factures</h2>
+<table><thead><tr><th>Référence</th><th>Fournisseur</th><th>Montant</th><th>Échéance</th><th>Statut</th></tr></thead><tbody>
+${(data.invoices ?? []).map((i: any) => `<tr>
+  <td>${i.ref ?? "—"}</td>
+  <td>${i.supplier}</td>
+  <td><strong>${f(i.amount)}</strong></td>
+  <td>${fd(i.dueDate)}</td>
+  <td><span class="badge ${i.status === "PAID" ? "badge-green" : i.status === "OVERDUE" ? "badge-red" : "badge-amber"}">${i.status === "PAID" ? "Payée" : i.status === "OVERDUE" ? "En retard" : "En attente"}</span></td>
+</tr>`).join("")}
+</tbody></table>
+</div>
+
+<!-- Liste des ventes (commandes) -->
+<div class="section">
+<h2>Liste des ventes — ${(data.allOrders ?? []).length} commandes</h2>
+<table><thead><tr><th>Employé</th><th>Articles</th><th>Partenaire</th><th>Remise</th><th>Total</th><th>Date</th></tr></thead><tbody>
+${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
+  <td>${o.employeeName}</td>
+  <td style="font-size:11px;max-width:200px">${o.lines.map((l: any) => `${l.qty}× ${l.name}`).join(", ")}</td>
+  <td>${o.partnerName ?? o.loyaltyName ?? "—"}</td>
+  <td style="color:#16a34a">${o.discountAmount > 0 ? `−${f(o.discountAmount)}` : "—"}</td>
+  <td><strong>${f(o.total)}</strong></td>
+  <td style="font-size:11px">${new Date(o.createdAt).toLocaleString("fr-FR")}</td>
+</tr>`).join("")}
+</tbody></table>
+</div>
+
+<div class="footer">Bilan généré le ${new Date().toLocaleString("fr-FR")} · ${data.restaurantName} · Semaine ${week} ${year}</div>
+</body>
+</html>`
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `bilan-S${String(week).padStart(2,"0")}-${year}-${data.restaurantName.replace(/\s/g,"-")}.html`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function prevWeek() { if (week === 1) { setWeek(52); setYear(y => y-1) } else setWeek(w => w-1) }
   function nextWeek() { if (week === 52) { setWeek(1); setYear(y => y+1) } else setWeek(w => w+1) }
 
-  const BilanRow = ({ label, value, bold, indent, color, editable, editVal, onEdit }: any) => (
+  const Row = ({ label, value, bold, indent, color }: any) => (
     <div className={`flex justify-between items-center py-1.5 border-b border-border/40 last:border-0 ${indent ? "pl-4" : ""}`}>
       <span className={`text-sm ${bold ? "font-semibold" : "text-muted-foreground"}`}>{label}</span>
-      {editable ? (
-        <Input type="number" min="0" step="0.01" className="w-32 h-7 text-xs text-right" value={editVal} onChange={e => onEdit(e.target.value)} />
-      ) : (
-        <span className={`text-sm font-medium ${bold ? "font-bold text-base" : ""} ${color ?? ""}`}>{value}</span>
-      )}
+      <span className={`text-sm font-medium ${bold ? "font-bold" : ""} ${color ?? ""}`}>{value}</span>
     </div>
   )
 
@@ -93,35 +290,35 @@ export default function ReportClient({ currency, taxRate: defaultTax, bonusRate:
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bilan hebdomadaire</h1>
-          <p className="text-sm text-muted-foreground mt-1">Résumé financier — taux : impôts {pct(defaultTax)} · prime {pct(defaultBonus)} · dividende {pct(defaultDividend)}</p>
+          <p className="text-sm text-muted-foreground mt-1">Impôts {pct(defaultTax)} · Prime {pct(defaultBonus)} · Dividendes {pct(defaultDividend)}</p>
         </div>
-        {data && (
-          <Button onClick={save} disabled={saving}>
-            <Save className="h-4 w-4" />{saving ? "Enregistrement..." : "Enregistrer"}
-          </Button>
-        )}
+        <Button onClick={saveAndDownload} disabled={downloading || !data}>
+          {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {downloading ? "Génération..." : "Enregistrer & Télécharger"}
+        </Button>
       </div>
 
-      {/* Week selector */}
+      {/* Week nav */}
       <div className="flex items-center gap-3">
         <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
         <div className="flex items-center gap-2 rounded-xl border bg-card px-5 py-2.5">
-          <span className="text-xl font-bold">Bilan S{String(week).padStart(2,"0")} {year}</span>
+          <span className="text-xl font-bold">S{String(week).padStart(2,"0")} {year}</span>
+          {data && <span className="text-sm text-muted-foreground">· {data.weekStart} → {data.weekEnd}</span>}
         </div>
         <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-muted-foreground">Chargement...</div>
+        <div className="py-16 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
       ) : data ? (
         <div className="space-y-6">
-          {/* Top KPIs */}
+          {/* KPIs */}
           <div className="grid grid-cols-4 gap-4">
             {[
               { label: "CA Total", value: fmt(data.revenue), color: "text-primary" },
               { label: "Salaires", value: fmt(data.totalSalaries), color: "text-amber-500" },
-              { label: "Bénéfice Net", value: fmt(data.netProfit), color: data.netProfit >= 0 ? "text-emerald-500" : "text-destructive" },
-              { label: "Trésorerie", value: fmt(parseFloat(savedTreasury) || data.treasury), color: "text-primary" },
+              { label: "Bénéfice Net", value: fmt(data.netProfit), color: (data.netProfit ?? 0) >= 0 ? "text-emerald-500" : "text-destructive" },
+              { label: "Trésorerie", value: fmt(data.treasury), color: "text-primary" },
             ].map((s, i) => (
               <Card key={i}><CardContent className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{s.label}</p>
@@ -130,120 +327,92 @@ export default function ReportClient({ currency, taxRate: defaultTax, bonusRate:
             ))}
           </div>
 
-          {/* Bilan columns — Excel layout */}
+          {/* Chart */}
+          {data.dailyData && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Ventes par jour</CardTitle></CardHeader>
+              <CardContent className="px-6 pb-4"><BarChart data={data.dailyData} currency={currency} height={130} /></CardContent>
+            </Card>
+          )}
+
+          {/* Bilan columns */}
           <div className="grid grid-cols-3 gap-4">
-            {/* Col 1: Compte de résultat */}
             <Card>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm">Chiffre d'affaires</CardTitle>
-                  <span className="text-lg font-bold text-primary">{fmt(data.revenue)}</span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-0 pb-4">
-                <BilanRow label="Montant CA" value={fmt(data.revenue)} bold />
-                <BilanRow label="Montant Salaire" value={fmt(data.totalSalaries)} bold color="text-amber-500" />
-                <BilanRow label="Bénéfice après salaire" value={fmt(data.afterSalaries)} bold />
-                <BilanRow label="Charges déductibles" value={fmt(data.chargesDeductible)} bold color="text-amber-500" />
-                <BilanRow label="Bénéfices Brut" value={fmt(data.grossProfit)} bold />
-                <BilanRow label={`A Payer impôts (${pct(data.taxRate)})`} value={fmt(data.taxes)} color="text-destructive" />
-                <BilanRow label="Bénéfice Net" value={fmt(data.netProfit)} bold color={data.netProfit >= 0 ? "text-emerald-500" : "text-destructive"} />
-                <BilanRow label={`Prime employé (${pct(data.bonusRate)})`} value={fmt(data.bonusTotal)} color="text-amber-500" />
-                <BilanRow label="Bénéfice après Prime Employé" value={fmt(data.afterBonus)} bold />
-                <BilanRow label={`Dividendes (${pct(data.dividendRate)})`} value={fmt(data.dividendTotal)} editable editVal={savedDividend} onEdit={setSavedDividend} />
-                <BilanRow label="Trésorerie" value={fmt(data.treasury)} editable editVal={savedTreasury} onEdit={setSavedTreasury} />
-                <BilanRow label="Charge non déductible" value={fmt(data.chargesNonDeductible)} color="text-destructive" />
-                <BilanRow label="Bénéfice final" value={fmt(data.finalProfit)} bold color={data.finalProfit >= 0 ? "text-emerald-500" : "text-destructive"} />
+              <CardHeader className="pb-2"><div className="flex justify-between items-center"><CardTitle className="text-sm">Compte de résultat</CardTitle><span className="text-base font-bold text-primary">{fmt(data.revenue)}</span></div></CardHeader>
+              <CardContent className="pb-4 space-y-0">
+                <Row label="CA total" value={fmt(data.revenue)} bold />
+                <Row label="− Salaires" value={fmt(data.totalSalaries)} bold color="text-amber-500" />
+                <Row label="Bénéfice après salaires" value={fmt(data.afterSalaries)} bold />
+                <Row label="− Charges déductibles" value={fmt(data.chargesDeductible)} bold color="text-amber-500" />
+                <Row label="Bénéfice brut" value={fmt(data.grossProfit)} bold />
+                <Row label={`Impôts (${pct(data.taxRate)})`} value={fmt(data.taxes)} indent color="text-destructive" />
+                <Row label="Bénéfice net" value={fmt(data.netProfit)} bold color={(data.netProfit ?? 0) >= 0 ? "text-emerald-500" : "text-destructive"} />
+                <Row label={`Prime employés (${pct(data.bonusRate)})`} value={fmt(data.bonusTotal)} indent color="text-amber-500" />
+                <Row label="Après prime" value={fmt(data.afterBonus)} bold />
+                <Row label={`Dividendes (${pct(data.dividendRate)})`} value={fmt(data.dividendTotal)} indent />
+                <Row label="Trésorerie" value={fmt(data.treasury)} indent />
+                <Row label="− Charges non déductibles" value={fmt(data.chargesNonDeductible)} indent color="text-destructive" />
+                <Row label="Bénéfice final" value={fmt(data.finalProfit)} bold color={(data.finalProfit ?? 0) >= 0 ? "text-emerald-500" : "text-destructive"} />
               </CardContent>
             </Card>
 
-            {/* Col 2: Charges */}
             <Card>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm">Charges</CardTitle>
-                  <span className="text-lg font-bold text-amber-500">{fmt(data.chargesDeductible + data.chargesNonDeductible)}</span>
-                </div>
-              </CardHeader>
+              <CardHeader className="pb-2"><div className="flex justify-between items-center"><CardTitle className="text-sm">Charges</CardTitle><span className="text-base font-bold text-amber-500">{fmt((data.chargesDeductible ?? 0) + (data.chargesNonDeductible ?? 0))}</span></div></CardHeader>
               <CardContent className="pb-4 space-y-0">
-                <BilanRow label="Charges non déductibles" value={fmt(data.chargesNonDeductible)} bold />
-                <BilanRow label="Charges déductibles" value={fmt(data.chargesDeductible)} bold />
-                <BilanRow label="Coût de revient des ventes" value={fmt(data.costRevenue)} indent />
-                <BilanRow label="Salaires employés" value={fmt(data.totalSalaries)} indent />
-                <div className="mt-4 rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Partenaires cette semaine</p>
-                  {data.partnerSummary.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Aucune vente partenaire</p>
-                  ) : data.partnerSummary.map((p, i) => (
-                    <div key={i} className="flex justify-between text-xs py-0.5">
-                      <span className="text-muted-foreground">{p.name}</span>
-                      <span className="font-medium">{fmt(p.revenue)} <span className="text-emerald-500">(−{fmt(p.discount)})</span></span>
-                    </div>
-                  ))}
-                </div>
+                <Row label="Charges déductibles" value={fmt(data.chargesDeductible)} bold />
+                <Row label="Coût de revient" value={fmt(data.costRevenue)} indent />
+                <Row label="Salaires" value={fmt(data.totalSalaries)} indent />
+                <Row label="Charges non déductibles" value={fmt(data.chargesNonDeductible)} bold />
               </CardContent>
             </Card>
 
-            {/* Col 3: Ventes */}
             <Card>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm">Ventes</CardTitle>
-                  <span className="text-lg font-bold text-emerald-500">{fmt(data.revenue)}</span>
-                </div>
-              </CardHeader>
+              <CardHeader className="pb-2"><div className="flex justify-between items-center"><CardTitle className="text-sm">Ventes</CardTitle><span className="text-base font-bold text-emerald-500">{fmt(data.revenue)}</span></div></CardHeader>
               <CardContent className="pb-4 space-y-0">
-                <BilanRow label="Ventes aux clients" value={fmt(data.clientRevenue)} bold />
-                <BilanRow label="Ventes aux partenaires" value={fmt(data.partnerRevenue)} bold />
+                <Row label="Clients directs" value={fmt(data.clientRevenue)} bold />
+                <Row label="Partenaires" value={fmt(data.partnerRevenue)} bold />
+                {(data.partnerSummary ?? []).map((p: any, i: number) => <Row key={i} label={p.name} value={fmt(p.revenue)} indent />)}
               </CardContent>
             </Card>
           </div>
 
-          {/* Tableau employés — comme Excel */}
+          {/* Employee table with dividends */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Table Employés — Semaine {week}</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Tableau employés — S{String(week).padStart(2,"0")} {year}</CardTitle></CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employé(e)</TableHead>
-                    <TableHead>Grade</TableHead>
-                    <TableHead>RIB</TableHead>
-                    <TableHead>% CA</TableHead>
-                    <TableHead>CA total</TableHead>
-                    <TableHead>Coût revient</TableHead>
-                    <TableHead>CA net</TableHead>
-                    <TableHead>Salaire</TableHead>
+                    <TableHead>Employé</TableHead><TableHead>Grade</TableHead><TableHead>RIB</TableHead>
+                    <TableHead>CA brut</TableHead><TableHead>Coût</TableHead><TableHead>CA net</TableHead>
+                    <TableHead>% Sal.</TableHead><TableHead>Salaire</TableHead>
+                    <TableHead>% Div.</TableHead><TableHead>Dividende</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.employeeStats.filter(e => e.revenue > 0 || true).map(emp => (
+                  {(data.employeeStats ?? []).map((emp: any) => (
                     <TableRow key={emp.employeeId}>
                       <TableCell className="font-medium">{emp.firstName} {emp.lastName}</TableCell>
                       <TableCell><Badge variant="default">{emp.grade}</Badge></TableCell>
-                      <TableCell>
-                        {emp.accountNumber ? (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-                            <CreditCard className="h-3 w-3" />{emp.accountNumber}
-                          </div>
-                        ) : <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{emp.accountNumber ?? "—"}</TableCell>
+                      <TableCell>{fmt(emp.revenue)}</TableCell>
+                      <TableCell className="text-amber-500">−{fmt(emp.costRevenue)}</TableCell>
+                      <TableCell className="font-bold text-primary">{fmt(emp.netRevenue)}</TableCell>
                       <TableCell><Badge variant="secondary">{emp.salaryPercent}%</Badge></TableCell>
-                      <TableCell className={`font-medium ${emp.revenue === 0 ? "text-muted-foreground" : ""}`}>{fmt(emp.revenue)}</TableCell>
-                      <TableCell className="text-amber-500">{emp.costRevenue > 0 ? `−${fmt(emp.costRevenue)}` : "—"}</TableCell>
-                      <TableCell className="font-semibold text-primary">{fmt(emp.netRevenue)}</TableCell>
-                      <TableCell className={`font-bold ${emp.salary > 0 ? "text-emerald-500" : "text-muted-foreground"}`}>{fmt(emp.salary)}</TableCell>
+                      <TableCell className="font-bold text-emerald-500">{fmt(emp.salary)}</TableCell>
+                      <TableCell><Badge variant="outline">{emp.dividendPercent ?? 0}%</Badge></TableCell>
+                      <TableCell className="font-bold text-primary">{fmt(emp.dividend ?? 0)}</TableCell>
                     </TableRow>
                   ))}
-                  {/* Totals row */}
                   <TableRow className="bg-muted/30 font-bold">
-                    <TableCell colSpan={4}>Total</TableCell>
-                    <TableCell className="text-primary">{fmt(data.employeeStats.reduce((s,e) => s+e.revenue, 0))}</TableCell>
-                    <TableCell className="text-amber-500">−{fmt(data.employeeStats.reduce((s,e) => s+e.costRevenue, 0))}</TableCell>
-                    <TableCell className="text-primary">{fmt(data.employeeStats.reduce((s,e) => s+e.netRevenue, 0))}</TableCell>
-                    <TableCell className="text-emerald-500">{fmt(data.employeeStats.reduce((s,e) => s+e.salary, 0))}</TableCell>
+                    <TableCell colSpan={3}>Total</TableCell>
+                    <TableCell>{fmt((data.employeeStats ?? []).reduce((s: number, e: any) => s + e.revenue, 0))}</TableCell>
+                    <TableCell className="text-amber-500">−{fmt((data.employeeStats ?? []).reduce((s: number, e: any) => s + e.costRevenue, 0))}</TableCell>
+                    <TableCell className="text-primary">{fmt((data.employeeStats ?? []).reduce((s: number, e: any) => s + e.netRevenue, 0))}</TableCell>
+                    <TableCell colSpan={1} />
+                    <TableCell className="text-emerald-500">{fmt((data.employeeStats ?? []).reduce((s: number, e: any) => s + e.salary, 0))}</TableCell>
+                    <TableCell colSpan={1} />
+                    <TableCell className="text-primary">{fmt((data.employeeStats ?? []).reduce((s: number, e: any) => s + (e.dividend ?? 0), 0))}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -251,24 +420,14 @@ export default function ReportClient({ currency, taxRate: defaultTax, bonusRate:
           </Card>
 
           {/* Partner invoices */}
-          {data.partnerSummary.length > 0 && (
+          {(data.partnerSummary ?? []).length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Factures Partenariat — Semaine {week}</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Factures partenariat</CardTitle></CardHeader>
               <CardContent className="p-0">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Partenaire</TableHead>
-                      <TableHead>Semaine</TableHead>
-                      <TableHead>CA brut</TableHead>
-                      <TableHead>Remise</TableHead>
-                      <TableHead>Facture Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Partenaire</TableHead><TableHead>Semaine</TableHead><TableHead>CA brut</TableHead><TableHead>Remise</TableHead><TableHead>Total facturé</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {data.partnerSummary.map((p, i) => (
+                    {(data.partnerSummary ?? []).map((p: any, i: number) => (
                       <TableRow key={i}>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="text-muted-foreground">S{String(week).padStart(2,"0")}</TableCell>

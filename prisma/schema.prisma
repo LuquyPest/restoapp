@@ -37,7 +37,8 @@ model Restaurant {
 model Grade {
   id            String     @id @default(cuid())
   name          String
-  salaryPercent Float
+  salaryPercent   Float
+  dividendPercent Float      @default(0)
   restaurantId  String
   createdAt     DateTime   @default(now())
 
