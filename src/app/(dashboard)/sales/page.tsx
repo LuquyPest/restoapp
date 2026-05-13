@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { requirePageAccess } from "@/lib/page-access"
 import { prisma } from "@/lib/prisma"
 import SalesClient from "@/components/sales/SalesClient"
 
@@ -14,7 +15,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const session = await auth()
   if (!session) redirect("/login")
   const { restaurantId, role } = session.user
-  if (role === "EMPLOYEE") redirect("/dashboard")
+  await requirePageAccess(session, "sales", ["OWNER", "MANAGER"])
 
   const sp = await searchParams
   const now = new Date()

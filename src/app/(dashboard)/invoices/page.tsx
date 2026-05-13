@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { requirePageAccess } from "@/lib/page-access"
 import { prisma } from "@/lib/prisma"
 import InvoicesClient from "@/components/invoices/InvoicesClient"
 
@@ -7,7 +8,7 @@ export default async function InvoicesPage() {
   const session = await auth()
   if (!session) redirect("/login")
   const { restaurantId, role } = session.user
-  if (role === "EMPLOYEE") redirect("/dashboard")
+  await requirePageAccess(session, "invoices", ["OWNER", "MANAGER"])
 
   const [invoices, suppliers, restaurant] = await Promise.all([
     prisma.invoice.findMany({

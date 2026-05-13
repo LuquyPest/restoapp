@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { requirePageAccess } from "@/lib/page-access"
 import { prisma } from "@/lib/prisma"
 import EmployeesClient from "@/components/employees/EmployeesClient"
 
@@ -8,7 +9,7 @@ export default async function EmployeesPage() {
   if (!session) redirect("/login")
 
   const { restaurantId, role } = session.user
-  if (role === "EMPLOYEE") redirect("/dashboard")
+  await requirePageAccess(session, "employees", ["OWNER", "MANAGER"])
 
   const [employees, grades, restaurant] = await Promise.all([
     prisma.employee.findMany({

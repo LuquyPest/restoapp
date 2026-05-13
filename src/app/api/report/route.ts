@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { getIp } from "@/lib/logger"
 import { z } from "zod"
+import { checkApiPageAccess } from "@/lib/page-access"
 
 function getWeekBounds(week: number, year: number) {
   const jan4 = new Date(year, 0, 4)
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const { restaurantId, role } = session.user
-  if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+  if (!await checkApiPageAccess(session, "report", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   if (!await checkRateLimit(`report:${session.user.id}`, 10, 60_000)) {
     return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 })
@@ -184,7 +185,7 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const { restaurantId, role } = session.user
-  if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+  if (!await checkApiPageAccess(session, "report", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const body = await req.json()
   const parsed = saveSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
