@@ -11,6 +11,7 @@ const schema = z.object({
   bonusRate: z.number().min(0).max(100).optional(),
   dividendRate: z.number().min(0).max(100).optional(),
   logo: z.string().url().max(500).nullable().optional(),
+  webhookUrl: z.string().url().max(2000).nullable().optional(),
 })
 
 export async function PATCH(req: NextRequest) {

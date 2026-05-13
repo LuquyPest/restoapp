@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Save, CheckCircle, ImageIcon, ShieldCheck, Plus, Trash2, Users } from "lucide-react"
+import { Save, CheckCircle, ImageIcon, ShieldCheck, Plus, Trash2, Users, Webhook, Send } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
 
-interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null }
+interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null }
 interface RestaurantUser { id: string; name: string | null; email: string; role: string }
 interface AccessRoleData {
   id: string; name: string
@@ -23,10 +23,12 @@ export default function SettingsClient({
   restaurant,
   accessRoles: initialRoles = [],
   restaurantUsers = [],
+  webhookUrl: initialWebhookUrl = "",
 }: {
   restaurant: Restaurant
   accessRoles?: AccessRoleData[]
   restaurantUsers?: RestaurantUser[]
+  webhookUrl?: string
 }) {
   const router = useRouter()
   const [form, setForm] = useState({
@@ -38,6 +40,9 @@ export default function SettingsClient({
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState(initialWebhookUrl)
+  const [webhookTesting, setWebhookTesting] = useState(false)
+  const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   // Access roles state
   const [roles, setRoles] = useState<AccessRoleData[]>(initialRoles)
@@ -128,9 +133,19 @@ export default function SettingsClient({
         bonusRate: parseFloat(form.bonusRate),
         dividendRate: parseFloat(form.dividendRate),
         logo: form.logo || null,
+        webhookUrl: webhookUrl.trim() || null,
       }),
     })
     setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
+  }
+
+  async function testWebhook() {
+    setWebhookTesting(true)
+    setWebhookTestResult(null)
+    const res = await fetch("/api/restaurants/webhook", { method: "POST" })
+    const data = await res.json()
+    setWebhookTestResult(res.ok ? { ok: true, msg: "Webhook envoyé avec succès !" } : { ok: false, msg: data.error ?? "Erreur inconnue" })
+    setWebhookTesting(false)
   }
 
   const systemRoles = [
@@ -227,6 +242,33 @@ export default function SettingsClient({
             <p><strong>Dividendes</strong> = Bénéfice net × {form.dividendRate || "?"}%</p>
             <p><strong>Trésorerie</strong> = Bénéfice net − prime − dividendes − charges non déductibles</p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Webhook className="h-5 w-5 text-primary" />Webhook hebdomadaire</CardTitle>
+          <CardDescription>Chaque lundi à 1h du matin, un résumé de la semaine précédente est envoyé automatiquement à cette URL via une requête POST JSON.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>URL du webhook</Label>
+            <Input
+              placeholder="https://hooks.slack.com/..."
+              value={webhookUrl}
+              onChange={e => { setWebhookUrl(e.target.value); setWebhookTestResult(null) }}
+            />
+            <p className="text-xs text-muted-foreground">Laisse vide pour désactiver</p>
+          </div>
+          {webhookTestResult && (
+            <div className={`rounded-md px-3 py-2 text-sm flex items-center gap-2 ${webhookTestResult.ok ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>
+              {webhookTestResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : null}
+              {webhookTestResult.msg}
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={testWebhook} disabled={webhookTesting || !webhookUrl.trim()}>
+            <Send className="h-3.5 w-3.5" />{webhookTesting ? "Envoi en cours..." : "Tester le webhook"}
+          </Button>
         </CardContent>
       </Card>
 

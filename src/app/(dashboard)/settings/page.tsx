@@ -20,5 +20,5 @@ export default async function SettingsPage() {
     select: { id: true, name: true, email: true, role: true },
     orderBy: { name: "asc" },
   })
-  return <SettingsClient restaurant={restaurant as any} accessRoles={accessRoles as any} restaurantUsers={restaurantUsers as any} />
+  return <SettingsClient restaurant={restaurant as any} accessRoles={accessRoles as any} restaurantUsers={restaurantUsers as any} webhookUrl={(restaurant as any).webhookUrl ?? ""} />
 }
