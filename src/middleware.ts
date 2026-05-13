@@ -3,7 +3,8 @@ import { jwtVerify } from "jose"
 import { NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const ADMIN_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET ?? "")
+if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET manquant")
+const ADMIN_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET)
 
 export default auth(async (req) => {
   const { nextUrl, auth: session } = req

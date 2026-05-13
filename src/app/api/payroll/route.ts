@@ -6,7 +6,7 @@ import { z } from "zod"
 
 const generateSchema = z.object({
   weekNumber: z.number().int().min(1).max(53),
-  year: z.number().int(),
+  year: z.number().int().min(2020).max(2099),
   taxRate: z.number().min(0).max(100).optional(),
   bonuses: z.record(z.string(), z.number()).optional(),
 })

@@ -6,8 +6,8 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 
 const schema = z.object({
-  phone: z.string().optional(),
-  accountNumber: z.string().optional(),
+  phone: z.string().max(30).optional(),
+  accountNumber: z.string().max(50).optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(6).optional(),
 })

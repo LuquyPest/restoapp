@@ -7,7 +7,7 @@ const schema = z.object({
   supplierId: z.string(),
   reference: z.string().optional(),
   amount: z.number().positive(),
-  dueDate: z.string(),
+  dueDate: z.coerce.date(),
   note: z.string().optional(),
 })
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       supplierId: parsed.data.supplierId,
       reference: parsed.data.reference,
       amount: parsed.data.amount,
-      dueDate: new Date(parsed.data.dueDate),
+      dueDate: parsed.data.dueDate,
       note: parsed.data.note,
     },
     include: { supplier: true },

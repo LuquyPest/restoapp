@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 const schema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).max(100),
   discountPercent: z.number().min(0).max(100),
 })
 

@@ -11,6 +11,9 @@ const loginSchema = z.object({
   password: z.string().min(6),
 })
 
+const MAX_FAILED_ATTEMPTS = 5
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
@@ -43,11 +46,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash)
-        if (!isValid) {
-          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip })
+        // Account lockout check
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
+            metadata: { reason: "account_locked" } })
           return null
         }
+
+        const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash)
+        if (!isValid) {
+          const newCount = (user.failedLoginAttempts ?? 0) + 1
+          const lockUntil = newCount >= MAX_FAILED_ATTEMPTS
+            ? new Date(Date.now() + LOCKOUT_DURATION_MS)
+            : null
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: newCount,
+              ...(lockUntil && { lockedUntil: lockUntil }),
+            },
+          })
+          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
+            metadata: { attempts: newCount } })
+          return null
+        }
+
+        // Reset lockout on success
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null },
+        })
 
         log({
           action: "LOGIN_SUCCESS",
@@ -82,6 +110,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.restaurantId = token.restaurantId as string
       }
       return session
+    },
+  },
+  events: {
+    async signOut(message) {
+      const token = (message as any).token
+      if (token?.sub) {
+        log({
+          action: "LOGOUT",
+          userId: token.sub,
+          userEmail: token.email ?? undefined,
+          restaurantId: token.restaurantId ?? undefined,
+        })
+      }
     },
   },
 })

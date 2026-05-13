@@ -85,8 +85,14 @@ export async function GET(req: NextRequest) {
   if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const url = new URL(req.url)
-  const week = parseInt(url.searchParams.get("week") ?? "1")
-  const year = parseInt(url.searchParams.get("year") ?? String(new Date().getFullYear()))
+  const weekRaw = parseInt(url.searchParams.get("week") ?? "1")
+  const yearRaw = parseInt(url.searchParams.get("year") ?? String(new Date().getFullYear()))
+  if (!Number.isInteger(weekRaw) || weekRaw < 1 || weekRaw > 53 ||
+      !Number.isInteger(yearRaw) || yearRaw < 2020 || yearRaw > 2099) {
+    return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 })
+  }
+  const week = weekRaw
+  const year = yearRaw
   const { start, end } = getWeekBounds(week, year)
 
   const [restaurant, orders, allCharges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
@@ -163,7 +169,10 @@ export async function GET(req: NextRequest) {
   })
 }
 
-const saveSchema = z.object({ week: z.number(), year: z.number() })
+const saveSchema = z.object({
+  week: z.number().int().min(1).max(53),
+  year: z.number().int().min(2020).max(2099),
+})
 
 export async function POST(req: NextRequest) {
   const session = await auth()

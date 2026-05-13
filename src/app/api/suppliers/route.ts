@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 const schema = z.object({
-  name: z.string().min(1),
-  contact: z.string().optional(),
+  name: z.string().min(1).max(100),
+  contact: z.string().max(100).optional(),
   email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string().optional(),
+  phone: z.string().max(30).optional(),
+  address: z.string().max(300).optional(),
 })
 
 export async function GET(req: NextRequest) {

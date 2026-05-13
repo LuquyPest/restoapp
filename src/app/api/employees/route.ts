@@ -11,8 +11,8 @@ const createSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   gradeId: z.string(),
-  phone: z.string().optional(),
-  accountNumber: z.string().optional(),
+  phone: z.string().max(30).optional(),
+  accountNumber: z.string().max(50).optional(),
 })
 
 export async function POST(req: NextRequest) {

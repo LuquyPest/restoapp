@@ -15,7 +15,7 @@ const createSchema = z.object({
     menuItemId: z.string(),
     quantity: z.number().int().positive(),
   })).min(1),
-  note: z.string().optional(),
+  note: z.string().max(500).optional(),
   partnerId: z.string().optional().nullable(),
   loyaltyCardId: z.string().optional().nullable(),
 })

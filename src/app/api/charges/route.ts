@@ -16,8 +16,18 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const url = new URL(req.url)
-  const week = url.searchParams.get("week") ? parseInt(url.searchParams.get("week")!) : null
-  const year = url.searchParams.get("year") ? parseInt(url.searchParams.get("year")!) : null
+  const weekParam = url.searchParams.get("week")
+  const yearParam = url.searchParams.get("year")
+  let week: number | null = null
+  let year: number | null = null
+  if (weekParam !== null || yearParam !== null) {
+    const w = parseInt(weekParam ?? "")
+    const y = parseInt(yearParam ?? "")
+    if (!Number.isInteger(w) || w < 1 || w > 53 || !Number.isInteger(y) || y < 2020 || y > 2099) {
+      return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 })
+    }
+    week = w; year = y
+  }
 
   let where: any = { restaurantId: session.user.restaurantId }
   if (week && year) {

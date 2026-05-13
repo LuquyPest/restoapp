@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+
+const patchSchema = z.object({ isPaid: z.boolean() })
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -15,11 +18,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!payroll) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const body = await req.json()
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
+
   const updated = await prisma.payroll.update({
     where: { id },
     data: {
-      isPaid: body.isPaid ?? true,
-      paidAt: body.isPaid ? new Date() : null,
+      isPaid: parsed.data.isPaid,
+      paidAt: parsed.data.isPaid ? new Date() : null,
     },
   })
 
