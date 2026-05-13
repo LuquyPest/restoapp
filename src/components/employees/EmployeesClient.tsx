@@ -34,6 +34,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
   const [newPassword, setNewPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [deleteGradeId, setDeleteGradeId] = useState<string | null>(null)
 
   async function createEmployee() {
     setLoading(true); setError("")
@@ -55,6 +56,18 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
       })
       if (!res.ok) throw new Error("Erreur")
       setModal(null); setGradeForm(EMPTY_GRADE); router.refresh()
+    } catch (e: any) { setError(e.message) }
+    finally { setLoading(false) }
+  }
+
+  async function deleteGrade() {
+    if (!deleteGradeId) return
+    setLoading(true); setError("")
+    try {
+      const res = await fetch(`/api/employees/grades/${deleteGradeId}`, { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Erreur")
+      setDeleteGradeId(null); router.refresh()
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }
@@ -134,6 +147,9 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
                 {g.dividendPercent > 0 && <Badge variant="secondary" className="text-[10px]">{g.dividendPercent}% dividende</Badge>}
                 <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => { setSelectedGrade(g); setGradeForm({ name: g.name, salaryPercent: String(g.salaryPercent), dividendPercent: String(g.dividendPercent ?? 0) }); setError(""); setModal("editGrade") }}>
                   <Pencil className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setError(""); setDeleteGradeId(g.id) }}>
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             ))}
@@ -265,6 +281,24 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
             <p className="text-xs text-muted-foreground">Affecte tous les employés avec ce grade</p>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button><Button className="flex-1" onClick={updateGrade} disabled={loading}>{loading ? "..." : "Enregistrer"}</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteGradeId} onOpenChange={v => !v && setDeleteGradeId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Supprimer ce grade ?</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+              ⚠️ Le grade sera supprimé définitivement. Impossible si des employés actifs l'utilisent encore.
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteGradeId(null)}>Annuler</Button>
+              <Button variant="destructive" className="flex-1" onClick={deleteGrade} disabled={loading}>
+                {loading ? "Suppression..." : "Supprimer"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
