@@ -77,6 +77,11 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
     setCart(prev => { const ex = prev.find(c => c.item.id === item.id); if (ex) return prev.map(c => c.item.id === item.id ? { ...c, qty: c.qty + 1 } : c); return [...prev, { item, qty: 1 }] })
   }
   function updateQty(id: string, delta: number) { setCart(prev => prev.map(c => c.item.id === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0)) }
+  function setQty(id: string, val: string) {
+    const n = parseInt(val, 10)
+    if (isNaN(n) || n < 1) setCart(prev => prev.filter(c => c.item.id !== id))
+    else setCart(prev => prev.map(c => c.item.id === id ? { ...c, qty: n } : c))
+  }
 
   async function confirmOrder() {
     if (cart.length === 0) return
@@ -176,7 +181,13 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                       <div key={c.item.id} className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
                           <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, -1)}><Minus className="h-3 w-3" /></Button>
-                          <span className="text-sm font-semibold w-5 text-center">{c.qty}</span>
+                          <input
+                            type="number" min="1"
+                            value={c.qty}
+                            onChange={e => setQty(c.item.id, e.target.value)}
+                            onFocus={e => e.target.select()}
+                            className="h-6 w-10 text-center text-sm font-semibold bg-transparent border border-border rounded focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
                           <Button size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, 1)}><Plus className="h-3 w-3" /></Button>
                         </div>
                         <span className="flex-1 text-xs truncate">{c.item.name}</span>
