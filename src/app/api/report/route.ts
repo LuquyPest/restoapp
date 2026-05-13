@@ -20,6 +20,13 @@ function formatDate(d: Date) {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
+function calculateTax(profit: number): number {
+  if (profit <= 50000) return 0
+  if (profit <= 100000) return (profit - 50000) * 0.20
+  if (profit <= 500000) return (50000 * 0.20) + (profit - 100000) * 0.30
+  return (50000 * 0.20) + (400000 * 0.30) + (profit - 500000) * 0.40
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
@@ -47,23 +54,20 @@ export async function GET(req: NextRequest) {
 
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
-  const taxRate = restaurant.taxRate ?? 11.9
   const bonusRate = restaurant.bonusRate ?? 10
   const dividendRate = restaurant.dividendRate ?? 72.26
 
-  // Revenue
   const revenue = orders.reduce((s, o) => s + o.total, 0)
   const costRevenue = orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
   const partnerRevenue = orders.filter(o => o.partnerId).reduce((s, o) => s + o.total, 0)
   const clientRevenue = revenue - partnerRevenue
 
-  // Per-employee stats
   const employeeStats = employees.map(emp => {
     const empOrders = orders.filter(o => o.employeeId === emp.id)
     const empRevenue = empOrders.reduce((s, o) => s + o.total, 0)
     const empCost = empOrders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
     const empNetRevenue = empRevenue - empCost
-    const salary = empNetRevenue * (emp.grade.salaryPercent / 100)
+    const salary = empRevenue * (emp.grade.salaryPercent / 100)
     return {
       employeeId: emp.id, firstName: emp.firstName, lastName: emp.lastName,
       grade: emp.grade.name, salaryPercent: emp.grade.salaryPercent,
@@ -77,24 +81,21 @@ export async function GET(req: NextRequest) {
   const chargesDeductible = charges.filter(c => c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
   const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
 
-  // Bilan calculations (Excel formulas)
   const afterSalaries = revenue - totalSalaries
   const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? grossProfit * (taxRate / 100) : 0
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
   const netProfit = grossProfit - taxes
   const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
-  const afterBonus = netProfit - bonusTotal
-  const dividendTotal = afterBonus > 0 ? afterBonus * (dividendRate / 100) : 0
-  const treasury = afterBonus - dividendTotal
-  const finalProfit = treasury - chargesNonDeductible
+  const afterBonus = netProfit
+  const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
+  const treasury = netProfit - bonusTotal - dividendTotal - chargesNonDeductible
+  const finalProfit = treasury
 
-  // Per-employee dividend (% of total dividends)
   const employeeStatsWithDividend = employeeStats.map(emp => ({
     ...emp,
     dividend: dividendTotal * ((emp.dividendPercent ?? 0) / 100),
   }))
 
-  // Partner summary
   const partnerMap = new Map<string, { name: string; revenue: number; discount: number }>()
   for (const order of orders.filter(o => o.partner)) {
     const ex = partnerMap.get(order.partnerId!) ?? { name: order.partner!.name, revenue: 0, discount: 0 }
@@ -102,7 +103,6 @@ export async function GET(req: NextRequest) {
     partnerMap.set(order.partnerId!, ex)
   }
 
-  // Product sales
   const productMap = new Map<string, { name: string; category: string; qty: number; revenue: number; cost: number }>()
   for (const order of orders) {
     for (const line of order.lines) {
@@ -113,7 +113,6 @@ export async function GET(req: NextRequest) {
   }
   const productStats = Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue)
 
-  // Daily data
   const days = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"]
   const dailyData = days.map((label, i) => {
     const dayStart = new Date(start); dayStart.setDate(start.getDate() + i); dayStart.setHours(0,0,0,0)
@@ -130,12 +129,11 @@ export async function GET(req: NextRequest) {
     afterSalaries, grossProfit, taxes, netProfit,
     bonusTotal, afterBonus, dividendTotal, treasury, finalProfit,
     clientRevenue, partnerRevenue,
-    taxRate, bonusRate, dividendRate,
+    bonusRate, dividendRate,
     employeeStats: employeeStatsWithDividend,
     partnerSummary: Array.from(partnerMap.values()),
     productStats,
     dailyData,
-    // Full data for HTML export
     allOrders: orders.map(o => ({
       id: o.id, total: o.total, discountAmount: o.discountAmount,
       createdAt: o.createdAt,
@@ -169,15 +167,14 @@ export async function POST(req: NextRequest) {
   const { week, year } = parsed.data
   const { start, end } = getWeekBounds(week, year)
 
-  const [restaurant, orders, charges, payrolls] = await Promise.all([
+  const [restaurant, orders, charges, employees] = await Promise.all([
     prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: week, year }, include: { lines: true } }),
     prisma.charge.findMany({ where: { restaurantId, isActive: true } }),
-    prisma.payroll.findMany({ where: { restaurantId, weekNumber: week, year } }),
+    prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
   ])
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
-  const taxRate = restaurant.taxRate ?? 11.9
   const bonusRate = restaurant.bonusRate ?? 10
   const dividendRate = restaurant.dividendRate ?? 72.26
   const revenue = orders.reduce((s, o) => s + o.total, 0)
@@ -186,10 +183,16 @@ export async function POST(req: NextRequest) {
   const clientRevenue = revenue - partnerRevenue
   const chargesDeductible = charges.filter(c => c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
   const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-  const salaries = payrolls.reduce((s, p) => s + p.netSalary, 0)
-  const afterSalaries = revenue - salaries
+
+  const totalSalaries = employees.reduce((s, emp) => {
+    const empOrders = orders.filter(o => o.employeeId === emp.id)
+    const empRevenue = empOrders.reduce((os, o) => os + o.total, 0)
+    return s + empRevenue * (emp.grade.salaryPercent / 100)
+  }, 0)
+
+  const afterSalaries = revenue - totalSalaries
   const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? grossProfit * (taxRate / 100) : 0
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
   const netProfit = grossProfit - taxes
   const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
   const afterBonus = netProfit - bonusTotal
@@ -198,8 +201,8 @@ export async function POST(req: NextRequest) {
 
   const report = await prisma.weeklyReport.upsert({
     where: { restaurantId_weekNumber_year: { restaurantId, weekNumber: week, year } },
-    create: { restaurantId, weekNumber: week, year, revenue, costRevenue, salaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
-    update: { revenue, costRevenue, salaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
+    create: { restaurantId, weekNumber: week, year, revenue, costRevenue, salaries: totalSalaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
+    update: { revenue, costRevenue, salaries: totalSalaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
   })
   return NextResponse.json(report)
 }
