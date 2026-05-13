@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
 
-interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null }
+interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null; webhookDay?: number; webhookHour?: number }
 interface RestaurantUser { id: string; name: string | null; email: string; role: string }
 interface AccessRoleData {
   id: string; name: string
@@ -19,16 +19,25 @@ interface AccessRoleData {
   users: RestaurantUser[]
 }
 
+const DAYS = [
+  { value: 1, label: "Lundi" }, { value: 2, label: "Mardi" }, { value: 3, label: "Mercredi" },
+  { value: 4, label: "Jeudi" }, { value: 5, label: "Vendredi" }, { value: 6, label: "Samedi" }, { value: 7, label: "Dimanche" },
+]
+
 export default function SettingsClient({
   restaurant,
   accessRoles: initialRoles = [],
   restaurantUsers = [],
   webhookUrl: initialWebhookUrl = "",
+  webhookDay: initialWebhookDay = 1,
+  webhookHour: initialWebhookHour = 1,
 }: {
   restaurant: Restaurant
   accessRoles?: AccessRoleData[]
   restaurantUsers?: RestaurantUser[]
   webhookUrl?: string
+  webhookDay?: number
+  webhookHour?: number
 }) {
   const router = useRouter()
   const [form, setForm] = useState({
@@ -41,6 +50,8 @@ export default function SettingsClient({
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState(initialWebhookUrl)
+  const [webhookDay, setWebhookDay] = useState(initialWebhookDay)
+  const [webhookHour, setWebhookHour] = useState(initialWebhookHour)
   const [webhookTesting, setWebhookTesting] = useState(false)
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -134,6 +145,8 @@ export default function SettingsClient({
         dividendRate: parseFloat(form.dividendRate),
         logo: form.logo || null,
         webhookUrl: webhookUrl.trim() || null,
+        webhookDay,
+        webhookHour,
       }),
     })
     setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
@@ -254,11 +267,33 @@ export default function SettingsClient({
           <div className="space-y-1.5">
             <Label>URL du webhook</Label>
             <Input
-              placeholder="https://hooks.slack.com/..."
+              placeholder="https://discord.com/api/webhooks/..."
               value={webhookUrl}
               onChange={e => { setWebhookUrl(e.target.value); setWebhookTestResult(null) }}
             />
-            <p className="text-xs text-muted-foreground">Laisse vide pour désactiver</p>
+            <p className="text-xs text-muted-foreground">Laisse vide pour désactiver · Discord, Slack, ou tout service HTTP</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Jour d'envoi</Label>
+              <Select value={String(webhookDay)} onValueChange={v => setWebhookDay(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DAYS.map(d => <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Heure d'envoi</Label>
+              <Select value={String(webhookHour)} onValueChange={v => setWebhookHour(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}h00</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           {webhookTestResult && (
             <div className={`rounded-md px-3 py-2 text-sm flex items-center gap-2 ${webhookTestResult.ok ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>

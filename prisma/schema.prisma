@@ -16,6 +16,8 @@ model Restaurant {
   bonusRate     Float          @default(10)
   dividendRate  Float          @default(72.26)
   webhookUrl    String?        @db.Text
+  webhookDay    Int            @default(1)
+  webhookHour   Int            @default(1)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   accessRoles   AccessRole[]

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { buildWebhookPayload, buildBody } from "@/lib/webhook-payload"
+import { buildWebhookPayload, sendWebhook } from "@/lib/webhook-payload"
+import { generateReportPdf } from "@/lib/report-pdf"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -31,17 +32,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const payload = await buildWebhookPayload(restaurant.id, restaurant.name, restaurant.currency, week, year)
-    const body = buildBody({ ...payload, test: true }, restaurant.webhookUrl)
-    const res = await fetch(restaurant.webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (!res.ok) {
-      return NextResponse.json({ error: `Le webhook a répondu avec le statut ${res.status}` }, { status: 502 })
+    const testPayload = { ...payload, test: true }
+    const pdfBuffer = await generateReportPdf(testPayload, true)
+    const status = await sendWebhook(restaurant.webhookUrl, testPayload, pdfBuffer)
+    if (status.startsWith("error")) {
+      return NextResponse.json({ error: `Le webhook a répondu avec le statut ${status}` }, { status: 502 })
     }
-    return NextResponse.json({ success: true, status: res.status })
+    return NextResponse.json({ success: true, status })
   } catch (e: any) {
     return NextResponse.json({ error: `Erreur de connexion : ${e.message}` }, { status: 502 })
   }
