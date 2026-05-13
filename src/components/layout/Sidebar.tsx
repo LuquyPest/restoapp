@@ -59,9 +59,9 @@ const navGroups = [
   },
 ]
 
-interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null }
+interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null }
 
-export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null }: Props) {
+export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null, accessRoleName = null }: Props) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [profileModal, setProfileModal] = useState(false)
@@ -71,7 +71,7 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
   const [profileSuccess, setProfileSuccess] = useState(false)
 
   const initials = userName?.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase() ?? "U"
-  const roleLabel = userRole === "OWNER" ? "Patron" : userRole === "MANAGER" ? "Manager" : "Employé"
+  const roleLabel = accessRoleName ?? (userRole === "OWNER" ? "Patron" : userRole === "MANAGER" ? "Manager" : "Employé")
 
   async function saveProfile() {
     setProfileLoading(true); setProfileError(""); setProfileSuccess(false)
@@ -113,10 +113,11 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
           {navGroups.map(group => {
             const items = group.items.filter(i => {
-              if (!i.roles.includes(userRole)) return false
               if (userRole === "OWNER") return true
+              // Rôle d'accès custom → il prime sur les restrictions système
               if (gradePermissions !== null) return gradePermissions.includes(i.key)
-              return true
+              // Pas de rôle custom → droits par défaut du rôle système
+              return i.roles.includes(userRole)
             })
             if (items.length === 0) return null
             return (

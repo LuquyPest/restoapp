@@ -17,6 +17,7 @@ model Restaurant {
   dividendRate  Float          @default(72.26)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  accessRoles   AccessRole[]
   charges       Charge[]
   employees     Employee[]
   grades        Grade[]
@@ -41,21 +42,33 @@ model Grade {
   createdAt       DateTime          @default(now())
   dividendPercent Float             @default(0)
   employees       Employee[]
-  permissions     GradePermission[]
-  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([restaurantId], map: "grades_restaurantId_fkey")
   @@map("grades")
 }
 
-model GradePermission {
-  id      String @id @default(cuid())
-  gradeId String
-  page    String
-  grade   Grade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+model AccessRole {
+  id           String             @id @default(cuid())
+  name         String
+  restaurantId String
+  createdAt    DateTime           @default(now())
+  permissions  AccessPermission[]
+  users        User[]
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
-  @@unique([gradeId, page])
-  @@map("grade_permissions")
+  @@index([restaurantId])
+  @@map("access_roles")
+}
+
+model AccessPermission {
+  id           String     @id @default(cuid())
+  accessRoleId String
+  page         String
+  accessRole   AccessRole @relation(fields: [accessRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([accessRoleId, page])
+  @@map("access_permissions")
 }
 
 model User {
@@ -65,6 +78,7 @@ model User {
   passwordHash        String
   role                UserRole    @default(EMPLOYEE)
   restaurantId        String?
+  accessRoleId        String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   failedLoginAttempts Int         @default(0)
@@ -72,6 +86,7 @@ model User {
   accounts            Account[]
   employee            Employee?
   sessions            Session[]
+  accessRole          AccessRole? @relation(fields: [accessRoleId], references: [id])
   restaurant          Restaurant? @relation(fields: [restaurantId], references: [id])
 
   @@index([restaurantId], map: "users_restaurantId_fkey")

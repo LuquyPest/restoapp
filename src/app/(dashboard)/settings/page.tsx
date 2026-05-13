@@ -10,10 +10,15 @@ export default async function SettingsPage() {
   if (role !== "OWNER") redirect("/dashboard")
   const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
   if (!restaurant) redirect("/login")
-  const grades = await prisma.grade.findMany({
+  const accessRoles = await prisma.accessRole.findMany({
     where: { restaurantId },
-    include: { permissions: true },
+    include: { permissions: true, users: { select: { id: true, name: true, email: true, role: true } } },
+    orderBy: { createdAt: "asc" },
+  })
+  const restaurantUsers = await prisma.user.findMany({
+    where: { restaurantId, role: { not: "OWNER" } },
+    select: { id: true, name: true, email: true, role: true },
     orderBy: { name: "asc" },
   })
-  return <SettingsClient restaurant={restaurant as any} grades={grades as any} />
+  return <SettingsClient restaurant={restaurant as any} accessRoles={accessRoles as any} restaurantUsers={restaurantUsers as any} />
 }

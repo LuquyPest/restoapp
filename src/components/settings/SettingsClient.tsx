@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Save, CheckCircle, ImageIcon, ShieldCheck } from "lucide-react"
+import { Save, CheckCircle, ImageIcon, ShieldCheck, Plus, Trash2, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,12 +8,26 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
 
 interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null }
-interface GradeWithPerms { id: string; name: string; permissions: { page: string }[] }
+interface RestaurantUser { id: string; name: string | null; email: string; role: string }
+interface AccessRoleData {
+  id: string; name: string
+  permissions: { page: string }[]
+  users: RestaurantUser[]
+}
 
-export default function SettingsClient({ restaurant, grades = [] }: { restaurant: Restaurant; grades?: GradeWithPerms[] }) {
+export default function SettingsClient({
+  restaurant,
+  accessRoles: initialRoles = [],
+  restaurantUsers = [],
+}: {
+  restaurant: Restaurant
+  accessRoles?: AccessRoleData[]
+  restaurantUsers?: RestaurantUser[]
+}) {
   const router = useRouter()
   const [form, setForm] = useState({
     name: restaurant.name,
@@ -25,31 +39,84 @@ export default function SettingsClient({ restaurant, grades = [] }: { restaurant
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // Grade permissions state: gradeId → Set of allowed page keys
-  const [permsState, setPermsState] = useState<Record<string, Set<string>>>(() =>
-    Object.fromEntries(grades.map(g => [g.id, new Set(g.permissions.map(p => p.page))]))
+  // Access roles state
+  const [roles, setRoles] = useState<AccessRoleData[]>(initialRoles)
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(initialRoles[0]?.id ?? "")
+  const [rolePages, setRolePages] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries(initialRoles.map(r => [r.id, new Set(r.permissions.map(p => p.page))]))
   )
-  const [permsLoading, setPermsLoading] = useState<Record<string, boolean>>({})
-  const [permsSaved, setPermsSaved] = useState<Record<string, boolean>>({})
-  const [selectedGradeId, setSelectedGradeId] = useState<string>(grades[0]?.id ?? "")
+  const [roleUsers, setRoleUsers] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(initialRoles.map(r => [r.id, r.users.map(u => u.id)]))
+  )
+  const [roleSaving, setRoleSaving] = useState<Record<string, boolean>>({})
+  const [roleSaved, setRoleSaved] = useState<Record<string, boolean>>({})
+  const [newRoleName, setNewRoleName] = useState("")
+  const [creatingRole, setCreatingRole] = useState(false)
 
-  function togglePage(gradeId: string, pageKey: string) {
-    setPermsState(prev => {
-      const next = new Set(prev[gradeId])
+  function togglePage(roleId: string, pageKey: string) {
+    setRolePages(prev => {
+      const next = new Set(prev[roleId] ?? [])
       next.has(pageKey) ? next.delete(pageKey) : next.add(pageKey)
-      return { ...prev, [gradeId]: next }
+      return { ...prev, [roleId]: next }
     })
   }
 
-  async function savePerms(gradeId: string) {
-    setPermsLoading(p => ({ ...p, [gradeId]: true }))
-    await fetch(`/api/employees/grades/${gradeId}/permissions`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pages: Array.from(permsState[gradeId] ?? []) }),
+  async function createRole() {
+    if (!newRoleName.trim()) return
+    setCreatingRole(true)
+    const res = await fetch("/api/access-roles", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newRoleName.trim() }),
     })
-    setPermsLoading(p => ({ ...p, [gradeId]: false }))
-    setPermsSaved(p => ({ ...p, [gradeId]: true }))
-    setTimeout(() => setPermsSaved(p => ({ ...p, [gradeId]: false })), 3000)
+    if (res.ok) {
+      const role: AccessRoleData = await res.json()
+      setRoles(prev => [...prev, role])
+      setRolePages(prev => ({ ...prev, [role.id]: new Set() }))
+      setRoleUsers(prev => ({ ...prev, [role.id]: [] }))
+      setSelectedRoleId(role.id)
+      setNewRoleName("")
+    }
+    setCreatingRole(false)
+  }
+
+  async function saveRole(roleId: string) {
+    setRoleSaving(p => ({ ...p, [roleId]: true }))
+    const res = await fetch(`/api/access-roles/${roleId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pages: Array.from(rolePages[roleId] ?? []),
+        userIds: roleUsers[roleId] ?? [],
+      }),
+    })
+    if (res.ok) {
+      const updated: AccessRoleData = await res.json()
+      setRoles(prev => prev.map(r => r.id === roleId ? updated : r))
+      router.refresh()
+    }
+    setRoleSaving(p => ({ ...p, [roleId]: false }))
+    setRoleSaved(p => ({ ...p, [roleId]: true }))
+    setTimeout(() => setRoleSaved(p => ({ ...p, [roleId]: false })), 3000)
+  }
+
+  async function deleteRole(roleId: string) {
+    const res = await fetch(`/api/access-roles/${roleId}`, { method: "DELETE" })
+    if (res.ok) {
+      setRoles(prev => prev.filter(r => r.id !== roleId))
+      if (selectedRoleId === roleId) setSelectedRoleId(roles.find(r => r.id !== roleId)?.id ?? "")
+    }
+  }
+
+  function addUserToRole(roleId: string, userId: string) {
+    if (!userId) return
+    setRoleUsers(prev => {
+      const current = prev[roleId] ?? []
+      if (current.includes(userId)) return prev
+      return { ...prev, [roleId]: [...current, userId] }
+    })
+  }
+
+  function removeUserFromRole(roleId: string, userId: string) {
+    setRoleUsers(prev => ({ ...prev, [roleId]: (prev[roleId] ?? []).filter(id => id !== userId) }))
   }
 
   async function save() {
@@ -66,10 +133,10 @@ export default function SettingsClient({ restaurant, grades = [] }: { restaurant
     setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
   }
 
-  const roles = [
+  const systemRoles = [
     { name: "Patron (OWNER)", desc: "Accès complet — tous les modules + paramètres", variant: "default" as const },
     { name: "Manager (MANAGER)", desc: "Gestion employés, commandes, fournisseurs, factures — pas les paramètres", variant: "secondary" as const },
-    { name: "Employé (EMPLOYEE)", desc: "Dashboard personnel, commandes, carte, ses payes", variant: "outline" as const },
+    { name: "Employé (EMPLOYEE)", desc: "Dashboard personnel, commandes uniquement", variant: "outline" as const },
   ]
 
   return (
@@ -172,7 +239,7 @@ export default function SettingsClient({ restaurant, grades = [] }: { restaurant
       <Card>
         <CardHeader><CardTitle>Rôles et permissions</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {roles.map(r => (
+          {systemRoles.map(r => (
             <div key={r.name} className="flex items-start gap-3 rounded-lg border p-3">
               <Badge variant={r.variant} className="mt-0.5 shrink-0">{r.name.split(" ")[0]}</Badge>
               <div>
@@ -184,67 +251,126 @@ export default function SettingsClient({ restaurant, grades = [] }: { restaurant
         </CardContent>
       </Card>
 
-      {grades.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Droits d'accès par grade</CardTitle>
-            <CardDescription>Définissez les pages accessibles pour chaque grade. Si aucune page n'est cochée, le grade hérite des droits par défaut de son rôle.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Grade tabs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Rôles d'accès personnalisés</CardTitle>
+          <CardDescription>Créez des rôles avec des pages spécifiques et assignez-les à vos employés et managers. Un utilisateur sans rôle d'accès hérite des droits par défaut de son rôle système.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Créer un nouveau rôle */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nom du rôle (ex : Caissier, Chef de salle…)"
+              value={newRoleName}
+              onChange={e => setNewRoleName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && createRole()}
+              className="flex-1"
+            />
+            <Button onClick={createRole} disabled={creatingRole || !newRoleName.trim()}>
+              <Plus className="h-4 w-4" />{creatingRole ? "Création..." : "Créer"}
+            </Button>
+          </div>
+
+          {roles.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun rôle d'accès — créez-en un ci-dessus.</p>
+          )}
+
+          {/* Onglets des rôles */}
+          {roles.length > 0 && (
             <div className="flex gap-2 flex-wrap">
-              {grades.map(g => (
-                <button
-                  key={g.id}
-                  onClick={() => setSelectedGradeId(g.id)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-all ${selectedGradeId === g.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
-                >
-                  {g.name}
-                  {permsState[g.id]?.size > 0 && (
-                    <span className="ml-1.5 text-[10px] opacity-70">({permsState[g.id].size})</span>
+              {roles.map(r => (
+                <button key={r.id} onClick={() => setSelectedRoleId(r.id)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-all ${selectedRoleId === r.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
+                  {r.name}
+                  {(roleUsers[r.id]?.length ?? 0) > 0 && (
+                    <span className="ml-1.5 text-[10px] opacity-75">{roleUsers[r.id].length} pers.</span>
                   )}
                 </button>
               ))}
             </div>
+          )}
 
-            {selectedGradeId && (
-              <div className="rounded-lg border p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Pages accessibles — {grades.find(g => g.id === selectedGradeId)?.name}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {CONFIGURABLE_PAGES.map(page => {
-                    const checked = permsState[selectedGradeId]?.has(page.key) ?? false
-                    return (
-                      <label key={page.key} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-muted/50 cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => togglePage(selectedGradeId, page.key)}
-                          className="h-4 w-4 rounded border-border accent-primary"
-                        />
+          {/* Panneau du rôle sélectionné */}
+          {selectedRoleId && roles.find(r => r.id === selectedRoleId) && (() => {
+            const role = roles.find(r => r.id === selectedRoleId)!
+            const assigned = roleUsers[role.id] ?? []
+            const unassigned = restaurantUsers.filter(u => !assigned.includes(u.id))
+            return (
+              <div className="rounded-lg border p-4 space-y-4">
+                {/* Pages */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pages accessibles</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {CONFIGURABLE_PAGES.map(page => (
+                      <label key={page.key} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer transition-colors">
+                        <input type="checkbox" checked={rolePages[role.id]?.has(page.key) ?? false}
+                          onChange={() => togglePage(role.id, page.key)}
+                          className="h-4 w-4 rounded border-border accent-primary" />
                         <span className="text-sm">{page.label}</span>
                       </label>
-                    )
-                  })}
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t">
+                    ))}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {permsState[selectedGradeId]?.size === 0
-                      ? "Aucune restriction — droits par défaut du rôle"
-                      : `${permsState[selectedGradeId]?.size} page(s) autorisée(s)`}
+                    {(rolePages[role.id]?.size ?? 0) === 0
+                      ? "Aucune page cochée — droits par défaut du rôle système"
+                      : `${rolePages[role.id]?.size} page(s) autorisée(s)`}
                   </p>
-                  <Button size="sm" onClick={() => savePerms(selectedGradeId)} disabled={permsLoading[selectedGradeId]}>
-                    {permsSaved[selectedGradeId]
-                      ? <><CheckCircle className="h-3.5 w-3.5" /> Enregistré</>
-                      : permsLoading[selectedGradeId] ? "Enregistrement..." : <><Save className="h-3.5 w-3.5" /> Enregistrer</>}
+                </div>
+
+                <Separator />
+
+                {/* Membres assignés */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Users className="h-3 w-3" />Membres assignés</p>
+                  {assigned.length === 0 && <p className="text-xs text-muted-foreground">Aucun membre</p>}
+                  <div className="space-y-1">
+                    {assigned.map(uid => {
+                      const u = restaurantUsers.find(x => x.id === uid)
+                      if (!u) return null
+                      return (
+                        <div key={uid} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-1.5">
+                          <div>
+                            <span className="text-sm font-medium">{u.name ?? u.email}</span>
+                            <Badge variant="outline" className="ml-2 text-[10px] h-4">{u.role === "MANAGER" ? "Manager" : "Employé"}</Badge>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeUserFromRole(role.id, uid)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {unassigned.length > 0 && (
+                    <Select onValueChange={uid => addUserToRole(role.id, uid)} value="">
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Ajouter un membre…" /></SelectTrigger>
+                      <SelectContent>
+                        {unassigned.map(u => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name ?? u.email} — {u.role === "MANAGER" ? "Manager" : "Employé"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => { if (confirm(`Supprimer le rôle "${role.name}" ?`)) deleteRole(role.id) }}>
+                    <Trash2 className="h-3.5 w-3.5" /> Supprimer ce rôle
+                  </Button>
+                  <Button size="sm" onClick={() => saveRole(role.id)} disabled={roleSaving[role.id]}>
+                    {roleSaved[role.id] ? <><CheckCircle className="h-3.5 w-3.5" /> Enregistré</> : roleSaving[role.id] ? "Enregistrement..." : <><Save className="h-3.5 w-3.5" /> Enregistrer</>}
                   </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            )
+          })()}
+        </CardContent>
+      </Card>
     </div>
   )
 }
