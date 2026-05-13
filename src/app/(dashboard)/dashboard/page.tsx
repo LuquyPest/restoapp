@@ -94,11 +94,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Owner dashboard
   const { start: weekStart, end: weekEnd } = getWeekRangeByWeek(selectedWeek, selectedYear)
-  const { start: monthStart, end: monthEnd } = getMonthRange()
 
-  const [weekOrders, monthOrders, totalEmployees, pendingInvoices, recentOrders, payrolls] = await Promise.all([
+  const prevWeek = selectedWeek === 1 ? 52 : selectedWeek - 1
+  const prevWeekYear = selectedWeek === 1 ? selectedYear - 1 : selectedYear
+  const { start: prevWeekStart, end: prevWeekEnd } = getWeekRangeByWeek(prevWeek, prevWeekYear)
+
+  const [weekOrders, prevWeekOrders, totalEmployees, pendingInvoices, recentOrders, payrolls] = await Promise.all([
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", createdAt: { gte: weekStart, lte: weekEnd } } }),
-    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", createdAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", createdAt: { gte: prevWeekStart, lte: prevWeekEnd } } }),
     prisma.employee.count({ where: { restaurantId, isActive: true } }),
     prisma.invoice.count({ where: { restaurantId, status: { in: ["PENDING", "OVERDUE"] } } }),
     prisma.order.findMany({
@@ -107,11 +110,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    prisma.payroll.findMany({ where: { restaurantId, year: currentYear, weekNumber: currentWeek } }),
+    prisma.payroll.findMany({ where: { restaurantId, year: selectedYear, weekNumber: selectedWeek } }),
   ])
 
   const weekRevenue = weekOrders.reduce((s, o) => s + o.total, 0)
-  const monthRevenue = monthOrders.reduce((s, o) => s + o.total, 0)
   const totalPayroll = payrolls.reduce((s, p) => s + p.netSalary, 0)
   const totalCharges = totalPayroll + payrolls.reduce((s, p) => s + p.taxes, 0)
 
@@ -126,13 +128,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <OwnerDashboard
       weekRevenue={weekRevenue}
-      monthRevenue={monthRevenue}
       totalCharges={totalCharges}
-      benefit={monthRevenue - totalCharges}
+      benefit={weekRevenue - totalCharges}
       totalEmployees={totalEmployees}
       pendingInvoices={pendingInvoices}
       weekOrderCount={weekOrders.length}
-      monthOrderCount={monthOrders.length}
+      prevWeekOrderCount={prevWeekOrders.length}
       recentOrders={recentOrders as any}
       currency={restaurant.currency}
       dailyData={dailyData}

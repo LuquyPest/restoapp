@@ -1,6 +1,6 @@
 "use client"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
-import { TrendingUp, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react"
+import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,14 +15,14 @@ interface RecentOrder {
   lines: { quantity: number; menuItem: { name: string } }[]
 }
 interface Props {
-  weekRevenue: number; monthRevenue: number; totalCharges: number; benefit: number
-  totalEmployees: number; pendingInvoices: number; weekOrderCount: number; monthOrderCount: number
+  weekRevenue: number; totalCharges: number; benefit: number
+  totalEmployees: number; pendingInvoices: number; weekOrderCount: number; prevWeekOrderCount: number
   recentOrders: RecentOrder[]; currency: string
   dailyData: DayData[]; selectedWeek: number; selectedYear: number
   currentWeek: number; currentYear: number
 }
 
-export default function OwnerDashboard({ weekRevenue, monthRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, monthOrderCount, recentOrders, currency, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
+export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, prevWeekOrderCount, recentOrders, currency, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
   const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
 
@@ -36,11 +36,23 @@ export default function OwnerDashboard({ weekRevenue, monthRevenue, totalCharges
 
   const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
 
+  const orderDelta = weekOrderCount - prevWeekOrderCount
+  const OrderDeltaIcon = orderDelta > 0 ? TrendingUp : orderDelta < 0 ? TrendingDown : Minus
+  const orderDeltaColor = orderDelta > 0 ? "text-emerald-500" : orderDelta < 0 ? "text-destructive" : "text-muted-foreground"
+  const orderDeltaBg = orderDelta > 0 ? "bg-emerald-500/10" : orderDelta < 0 ? "bg-destructive/10" : "bg-muted/40"
+
   const stats = [
     { label: "CA semaine", value: fmt(weekRevenue), sub: `${weekOrderCount} commandes`, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10" },
-    { label: "CA ce mois", value: fmt(monthRevenue), sub: "Mois en cours", icon: ShoppingCart, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Charges", value: fmt(totalCharges), sub: "Payes + taxes semaine", icon: Banknote, color: "text-amber-500", bg: "bg-amber-500/10" },
-    { label: "Bénéfice", value: fmt(benefit), sub: "CA mois − charges", icon: TrendingUp, color: benefit >= 0 ? "text-emerald-500" : "text-destructive", bg: benefit >= 0 ? "bg-emerald-500/10" : "bg-destructive/10" },
+    {
+      label: "Commandes vs S-1",
+      value: `${orderDelta > 0 ? "+" : ""}${orderDelta}`,
+      sub: `${weekOrderCount} cette sem. · ${prevWeekOrderCount} sem. préc.`,
+      icon: OrderDeltaIcon,
+      color: orderDeltaColor,
+      bg: orderDeltaBg,
+    },
+    { label: "Charges semaine", value: fmt(totalCharges), sub: "Payes + taxes", icon: Banknote, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { label: "Bénéfice semaine", value: fmt(benefit), sub: "CA semaine − charges", icon: TrendingUp, color: benefit >= 0 ? "text-emerald-500" : "text-destructive", bg: benefit >= 0 ? "bg-emerald-500/10" : "bg-destructive/10" },
   ]
 
   const statusIcon = (s: string) => {
