@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { buildWebhookPayload, sendWebhook } from "@/lib/webhook-payload"
-import { generateReportPdf } from "@/lib/report-pdf"
+import { buildReportData, sendWebhook } from "@/lib/webhook-payload"
+import { generateReportHtml } from "@/lib/report-html"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -43,9 +43,10 @@ export async function POST(req: NextRequest) {
   for (const restaurant of restaurants) {
     if (!restaurant.webhookUrl) continue
     try {
-      const payload = await buildWebhookPayload(restaurant.id, restaurant.name, restaurant.currency, week, year)
-      const pdfBuffer = await generateReportPdf(payload)
-      const status = await sendWebhook(restaurant.webhookUrl, payload, pdfBuffer)
+      const data = await buildReportData(restaurant.id, restaurant.name, restaurant.currency, week, year)
+      const html = generateReportHtml(data, week, year)
+      const htmlBuffer = Buffer.from(html, "utf-8")
+      const status = await sendWebhook(restaurant.webhookUrl, data, htmlBuffer, week, year)
       results.push({ restaurant: restaurant.name, status })
     } catch (e: any) {
       results.push({ restaurant: restaurant.name, status: `failed: ${e.message}` })

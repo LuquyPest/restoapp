@@ -28,146 +28,168 @@ function calculateTax(profit: number): number {
   return (50000 * 0.20) + (400000 * 0.30) + (profit - 500000) * 0.40
 }
 
-export interface WebhookPayload {
-  event: string
-  restaurant: string
-  currency: string
-  weekNumber: number
-  year: number
-  weekStart: string
-  weekEnd: string
-  revenue: number
-  orderCount: number
-  totalSalaries: number
-  chargesDeductible: number
-  chargesNonDeductible: number
-  grossProfit: number
-  taxes: number
-  netProfit: number
-  treasury: number
-  employees: { name: string; grade: string; orderCount: number; revenue: number; salary: number }[]
-  test?: boolean
-}
-
 export function isDiscordUrl(url: string) {
   return /discord(?:app)?\.com\/api\/webhooks\//.test(url)
 }
 
-export function formatDiscordEmbed(payload: WebhookPayload): object {
-  const empLines = payload.employees.length > 0
-    ? payload.employees.map(e => `• **${e.name}** (${e.grade}) — ${e.orderCount} cmd · ${fmt(e.revenue, payload.currency)} · salaire ${fmt(e.salary, payload.currency)}`).join("\n")
+export function formatDiscordEmbed(data: any, week: number, year: number): object {
+  const currency = data.currency ?? ""
+  const empLines = (data.employeeStats ?? []).length > 0
+    ? (data.employeeStats ?? []).map((e: any) => `• **${e.firstName} ${e.lastName}** (${e.grade}) — ${fmt(e.revenue, currency)} · salaire ${fmt(e.salary, currency)}`).join("\n")
     : "_Aucun employé actif cette semaine_"
 
   return {
     embeds: [{
-      title: `📊 Bilan S${String(payload.weekNumber).padStart(2, "0")} ${payload.year}${payload.test ? " — TEST" : ""}`,
-      description: `**${payload.restaurant}**\n${payload.weekStart} → ${payload.weekEnd}`,
+      title: `📊 Bilan S${String(week).padStart(2, "0")} ${year}${data.test ? " — TEST" : ""}`,
+      description: `**${data.restaurantName}**\n${data.weekStart} → ${data.weekEnd}`,
       color: 0x6366f1,
       fields: [
-        { name: "💰 CA semaine", value: fmt(payload.revenue, payload.currency), inline: true },
-        { name: "🧾 Commandes", value: String(payload.orderCount), inline: true },
-        { name: "👥 Salaires", value: fmt(payload.totalSalaries, payload.currency), inline: true },
-        { name: "📉 Charges déductibles", value: fmt(payload.chargesDeductible, payload.currency), inline: true },
-        { name: "📈 Bénéfice net", value: fmt(payload.netProfit, payload.currency), inline: true },
-        { name: "🏦 Trésorerie", value: fmt(payload.treasury, payload.currency), inline: true },
+        { name: "💰 CA semaine", value: fmt(data.revenue, currency), inline: true },
+        { name: "🧾 Commandes", value: String(data.allOrders?.length ?? 0), inline: true },
+        { name: "👥 Salaires", value: fmt(data.totalSalaries, currency), inline: true },
+        { name: "📉 Charges déductibles", value: fmt(data.chargesDeductible, currency), inline: true },
+        { name: "📈 Bénéfice net", value: fmt(data.netProfit, currency), inline: true },
+        { name: "🏦 Trésorerie", value: fmt(data.treasury, currency), inline: true },
         { name: "Détail employés", value: empLines, inline: false },
       ],
-      footer: { text: "RestoCompta · Rapport joint en PDF" },
+      footer: { text: "RestoCompta · Bilan joint en HTML" },
       timestamp: new Date().toISOString(),
     }],
-    attachments: [{ id: 0, filename: `bilan-S${String(payload.weekNumber).padStart(2,"0")}-${payload.year}.pdf` }],
+    attachments: [{ id: 0, filename: `bilan-S${String(week).padStart(2,"0")}-${year}.html` }],
   }
 }
 
-export function buildBody(payload: WebhookPayload, url: string): object {
-  if (isDiscordUrl(url)) return formatDiscordEmbed(payload)
-  return payload
-}
-
-export async function sendWebhook(url: string, payload: WebhookPayload, pdfBuffer: Buffer): Promise<string> {
-  const filename = `bilan-S${String(payload.weekNumber).padStart(2, "0")}-${payload.year}.pdf`
+export async function sendWebhook(url: string, data: any, htmlBuffer: Buffer, week: number, year: number): Promise<string> {
+  const filename = `bilan-S${String(week).padStart(2, "0")}-${year}.html`
 
   if (isDiscordUrl(url)) {
     const form = new FormData()
-    form.append("payload_json", JSON.stringify(formatDiscordEmbed(payload)))
-    form.append("files[0]", new Blob([pdfBuffer.buffer as ArrayBuffer], { type: "application/pdf" }), filename)
+    form.append("payload_json", JSON.stringify(formatDiscordEmbed(data, week, year)))
+    form.append("files[0]", new Blob([htmlBuffer.buffer as ArrayBuffer], { type: "text/html;charset=utf-8" }), filename)
     const res = await fetch(url, { method: "POST", body: form, signal: AbortSignal.timeout(30_000) })
     return res.ok ? `ok (${res.status})` : `error (${res.status})`
   }
 
-  const body = { ...payload, pdf: { filename, data: pdfBuffer.toString("base64") } }
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...data, html: { filename, data: htmlBuffer.toString("base64") } }),
     signal: AbortSignal.timeout(30_000),
   })
   return res.ok ? `ok (${res.status})` : `error (${res.status})`
 }
 
-export async function buildWebhookPayload(
+export async function buildReportData(
   restaurantId: string,
   restaurantName: string,
   currency: string,
   week: number,
   year: number
-): Promise<WebhookPayload> {
+): Promise<any> {
   const { start, end } = getWeekBounds(week, year)
 
-  const [orders, employees, allCharges] = await Promise.all([
+  const [restaurant, orders, allCharges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
+    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.order.findMany({
       where: { restaurantId, status: "CONFIRMED", weekNumber: week, year },
-      include: { lines: true, employee: { include: { grade: true } } },
+      include: { lines: { include: { menuItem: true } }, partner: true, loyaltyCard: true, employee: { include: { grade: true } } },
     }),
-    prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
     prisma.charge.findMany({ where: { restaurantId, isActive: true, deletedAt: null } }),
+    prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
+    prisma.supplier.findMany({ where: { restaurantId } }),
+    prisma.invoice.findMany({ where: { restaurantId, deletedAt: null }, include: { supplier: true } }),
+    prisma.loyaltyCard.findMany({ where: { restaurantId } }),
+    prisma.partner.findMany({ where: { restaurantId } }),
   ])
 
-  const charges = allCharges.filter(c =>
+  const charges = allCharges.filter((c: any) =>
     (!c.weekNumber && !c.year) || (c.weekNumber === week && c.year === year)
   )
 
-  const revenue = orders.reduce((s, o) => s + o.total, 0)
-  const orderCount = orders.length
+  const bonusRate = restaurant?.bonusRate ?? 10
+  const dividendRate = restaurant?.dividendRate ?? 72.26
 
+  const revenue = orders.reduce((s, o) => s + o.total, 0)
   const employeeStats = employees.map(emp => {
     const empOrders = orders.filter(o => o.employeeId === emp.id)
     const empRevenue = empOrders.reduce((s, o) => s + o.total, 0)
+    const empCost = empOrders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
     const salary = empRevenue * (emp.grade.salaryPercent / 100)
+    const dividendPercent = (emp.grade as any).dividendPercent ?? 0
     return {
-      name: `${emp.firstName} ${emp.lastName}`,
-      grade: emp.grade.name,
-      orderCount: empOrders.length,
-      revenue: empRevenue,
-      salary,
+      employeeId: emp.id, firstName: emp.firstName, lastName: emp.lastName,
+      grade: emp.grade.name, salaryPercent: emp.grade.salaryPercent, dividendPercent,
+      accountNumber: (emp as any).accountNumber,
+      revenue: empRevenue, costRevenue: empCost, netRevenue: empRevenue - empCost, salary,
     }
-  }).filter(e => e.orderCount > 0)
+  })
 
   const totalSalaries = employeeStats.reduce((s, e) => s + e.salary, 0)
   const chargesDeductible = charges.filter(c => c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
   const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-  const grossProfit = revenue - totalSalaries - chargesDeductible
+  const afterSalaries = revenue - totalSalaries
+  const grossProfit = afterSalaries - chargesDeductible
   const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
   const netProfit = grossProfit - taxes
-  const treasury = netProfit - chargesNonDeductible
+  const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
+  const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
+  const treasury = netProfit - bonusTotal - dividendTotal - chargesNonDeductible
+
+  const employeeStatsWithDividend = employeeStats.map(e => ({
+    ...e,
+    dividend: dividendTotal * ((e.dividendPercent ?? 0) / 100),
+  }))
+
+  const partnerMap = new Map<string, { name: string; revenue: number; discount: number }>()
+  for (const order of orders.filter(o => o.partner)) {
+    const ex = partnerMap.get(order.partnerId!) ?? { name: order.partner!.name, revenue: 0, discount: 0 }
+    ex.revenue += order.total; ex.discount += order.discountAmount
+    partnerMap.set(order.partnerId!, ex)
+  }
+
+  const productMap = new Map<string, { name: string; category: string; qty: number; revenue: number; cost: number }>()
+  for (const order of orders) {
+    for (const line of order.lines) {
+      const ex = productMap.get(line.menuItemId) ?? { name: line.menuItem.name, category: line.menuItem.category, qty: 0, revenue: 0, cost: 0 }
+      ex.qty += line.quantity; ex.revenue += line.unitPrice * line.quantity; ex.cost += line.costPrice * line.quantity
+      productMap.set(line.menuItemId, ex)
+    }
+  }
+
+  const days = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"]
+  const dailyData = days.map((label, i) => {
+    const dayStart = new Date(start); dayStart.setDate(start.getDate() + i); dayStart.setHours(0,0,0,0)
+    const dayEnd = new Date(dayStart); dayEnd.setHours(23,59,59,999)
+    const value = orders.filter(o => new Date(o.createdAt) >= dayStart && new Date(o.createdAt) <= dayEnd).reduce((s, o) => s + o.total, 0)
+    return { label, value, date: formatDate(dayStart) }
+  })
 
   return {
-    event: "weekly_report",
-    restaurant: restaurantName,
-    currency,
-    weekNumber: week,
-    year,
-    weekStart: formatDate(start),
-    weekEnd: formatDate(end),
-    revenue,
-    orderCount,
-    totalSalaries,
-    chargesDeductible,
-    chargesNonDeductible,
-    grossProfit,
-    taxes,
-    netProfit,
-    treasury,
-    employees: employeeStats,
+    restaurantName, currency, weekNumber: week, year,
+    weekStart: formatDate(start), weekEnd: formatDate(end),
+    revenue, totalSalaries, chargesDeductible, chargesNonDeductible,
+    afterSalaries, grossProfit, taxes, netProfit, bonusTotal,
+    afterBonus: netProfit, dividendTotal, treasury, finalProfit: treasury,
+    clientRevenue: revenue - orders.filter(o => o.partnerId).reduce((s, o) => s + o.total, 0),
+    partnerRevenue: orders.filter(o => o.partnerId).reduce((s, o) => s + o.total, 0),
+    costRevenue: orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0),
+    bonusRate, dividendRate,
+    taxRate: 0,
+    employeeStats: employeeStatsWithDividend,
+    partnerSummary: Array.from(partnerMap.values()),
+    productStats: Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue),
+    dailyData,
+    allOrders: orders.map(o => ({
+      id: o.id, total: o.total, discountAmount: o.discountAmount, createdAt: o.createdAt,
+      employeeName: o.employee ? `${o.employee.firstName} ${o.employee.lastName}` : "—",
+      partnerName: (o.partner as any)?.name ?? null,
+      loyaltyName: o.loyaltyCard ? `${o.loyaltyCard.firstName} ${o.loyaltyCard.lastName}` : null,
+      lines: o.lines.map(l => ({ name: l.menuItem.name, qty: l.quantity, price: l.unitPrice, cost: l.costPrice })),
+    })),
+    suppliers: suppliers.map(s => ({ name: s.name, contact: (s as any).contact, email: (s as any).email, phone: (s as any).phone })),
+    invoices: invoices.map(i => ({ ref: (i as any).reference, supplier: (i as any).supplier.name, amount: i.amount, dueDate: i.dueDate, status: i.status })),
+    loyaltyCards: loyaltyCards.map(c => ({ name: `${c.firstName} ${c.lastName}`, discount: c.discountPercent, expiresAt: c.expiresAt, isActive: c.isActive })),
+    partners: partners.map(p => ({ name: p.name, discount: p.discountPercent, isActive: p.isActive })),
+    charges: charges.map(c => ({ name: c.name, amount: c.amount, type: c.type })),
   }
 }

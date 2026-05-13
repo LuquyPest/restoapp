@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { buildWebhookPayload, sendWebhook } from "@/lib/webhook-payload"
-import { generateReportPdf } from "@/lib/report-pdf"
+import { buildReportData, sendWebhook } from "@/lib/webhook-payload"
+import { generateReportHtml } from "@/lib/report-html"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
   if (week < 1) { week = 52; year-- }
 
   try {
-    const payload = await buildWebhookPayload(restaurant.id, restaurant.name, restaurant.currency, week, year)
-    const testPayload = { ...payload, test: true }
-    const pdfBuffer = await generateReportPdf(testPayload, true)
-    const status = await sendWebhook(restaurant.webhookUrl, testPayload, pdfBuffer)
+    const data = await buildReportData(restaurant.id, restaurant.name, restaurant.currency, week, year)
+    const testData = { ...data, test: true }
+    const html = generateReportHtml(testData, week, year)
+    const htmlBuffer = Buffer.from(html, "utf-8")
+    const status = await sendWebhook(restaurant.webhookUrl, testData, htmlBuffer, week, year)
     if (status.startsWith("error")) {
       return NextResponse.json({ error: `Le webhook a répondu avec le statut ${status}` }, { status: 502 })
     }
