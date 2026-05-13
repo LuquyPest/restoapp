@@ -10,13 +10,14 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1"))
   const action = url.searchParams.get("action") ?? ""
   const rawSearch = url.searchParams.get("search") ?? ""
+  const restaurantId = url.searchParams.get("restaurantId") ?? ""
   const perPage = 50
 
-  // Sanitiser la recherche : taille max 100, caractères alphanumériques + ponctuation courante
   const search = rawSearch.slice(0, 100).replace(/[%_\\]/g, "\\$&")
 
   const where: Record<string, unknown> = {}
   if (action) where.action = action
+  if (restaurantId) where.restaurantId = restaurantId
   if (search) {
     where.OR = [
       { userEmail: { contains: search } },

@@ -182,13 +182,23 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(r.createdAt)}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setDeleteId(r.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                          onClick={() => router.push(`/admin/logs/${r.id}`)}
+                          title="Voir les logs"
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
