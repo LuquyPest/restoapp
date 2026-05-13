@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Save, CheckCircle } from "lucide-react"
+import { Save, CheckCircle, ImageIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
-interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number }
+interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null }
 
 export default function SettingsClient({ restaurant }: { restaurant: Restaurant }) {
   const router = useRouter()
@@ -18,6 +18,7 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
     currency: restaurant.currency,
     bonusRate: String(restaurant.bonusRate ?? 30),
     dividendRate: String(restaurant.dividendRate ?? 45),
+    logo: restaurant.logo ?? "",
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -30,6 +31,7 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
         name: form.name, currency: form.currency,
         bonusRate: parseFloat(form.bonusRate),
         dividendRate: parseFloat(form.dividendRate),
+        logo: form.logo || null,
       }),
     })
     setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
@@ -47,6 +49,29 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
         <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
         <p className="text-sm text-muted-foreground mt-1">Configuration de votre établissement</p>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Logo de l'établissement</CardTitle><CardDescription>Affiché dans la barre latérale de l'application</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-xl border bg-muted/40 flex items-center justify-center shrink-0 overflow-hidden">
+              {form.logo
+                ? <img src={form.logo} alt="Logo" className="h-full w-full object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
+                : <ImageIcon className="h-7 w-7 text-muted-foreground/40" />
+              }
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label>Lien du logo (URL)</Label>
+              <Input
+                placeholder="https://exemple.com/logo.png"
+                value={form.logo}
+                onChange={e => setForm({ ...form, logo: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Colle l'URL directe de ton image (PNG, JPG, WebP…)</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Établissement</CardTitle></CardHeader>

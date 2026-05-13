@@ -8,6 +8,7 @@ import {
   FileText, Settings, LogOut, ChevronRight,
   TrendingUp, Receipt, Handshake, BarChart3, Sun, Moon, CreditCard, KeyRound,
 } from "lucide-react"
+import { AppLogo } from "@/components/ui/AppLogo"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -53,9 +54,9 @@ const navGroups = [
   },
 ]
 
-interface Props { userRole: string; restaurantName: string; userName: string }
+interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null }
 
-export default function Sidebar({ userRole, restaurantName, userName }: Props) {
+export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo }: Props) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [profileModal, setProfileModal] = useState(false)
@@ -93,10 +94,11 @@ export default function Sidebar({ userRole, restaurantName, userName }: Props) {
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-sidebar">
-        <div className="flex h-14 items-center gap-3 border-b px-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shrink-0">
-            <UtensilsCrossed className="h-4 w-4 text-primary-foreground" />
-          </div>
+        <div className="flex flex-col border-b px-4 py-3 gap-2">
+          {restaurantLogo
+            ? <img src={restaurantLogo} alt={restaurantName} width={44} height={44} className="rounded-lg object-contain" />
+            : <AppLogo size={44} />
+          }
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-sidebar-foreground">{restaurantName}</p>
             <Badge variant="secondary" className="mt-0.5 h-4 text-[10px] px-1.5">{roleLabel}</Badge>

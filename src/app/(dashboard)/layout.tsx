@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user?.restaurant) redirect("/login")
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar userRole={user.role} restaurantName={user.restaurant.name} userName={user.name ?? user.email} />
+      <Sidebar userRole={user.role} restaurantName={user.restaurant.name} userName={user.name ?? user.email} restaurantLogo={user.restaurant.logo ?? null} />
       <div className="ml-60 min-h-screen">
         <main className="p-8 max-w-7xl">{children}</main>
       </div>

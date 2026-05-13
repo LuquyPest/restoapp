@@ -11,8 +11,16 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "RestoManager",
+  title: "RestoCompta",
   description: "Gestion de restaurant",
+  icons: {
+    icon: [
+      { url: "/logo.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo.png", sizes: "96x96", type: "image/png" },
+      { url: "/logo.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: { url: "/logo.png", sizes: "180x180", type: "image/png" },
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -10,6 +10,7 @@ const schema = z.object({
   taxRate: z.number().min(0).max(100).optional(),
   bonusRate: z.number().min(0).max(100).optional(),
   dividendRate: z.number().min(0).max(100).optional(),
+  logo: z.string().url().max(500).nullable().optional(),
 })
 
 export async function PATCH(req: NextRequest) {
