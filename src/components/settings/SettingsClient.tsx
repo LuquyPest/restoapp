@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Save, CheckCircle, ImageIcon } from "lucide-react"
+import { Save, CheckCircle, ImageIcon, ShieldCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
 
 interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null }
+interface GradeWithPerms { id: string; name: string; permissions: { page: string }[] }
 
-export default function SettingsClient({ restaurant }: { restaurant: Restaurant }) {
+export default function SettingsClient({ restaurant, grades = [] }: { restaurant: Restaurant; grades?: GradeWithPerms[] }) {
   const router = useRouter()
   const [form, setForm] = useState({
     name: restaurant.name,
@@ -22,6 +24,33 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Grade permissions state: gradeId → Set of allowed page keys
+  const [permsState, setPermsState] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries(grades.map(g => [g.id, new Set(g.permissions.map(p => p.page))]))
+  )
+  const [permsLoading, setPermsLoading] = useState<Record<string, boolean>>({})
+  const [permsSaved, setPermsSaved] = useState<Record<string, boolean>>({})
+  const [selectedGradeId, setSelectedGradeId] = useState<string>(grades[0]?.id ?? "")
+
+  function togglePage(gradeId: string, pageKey: string) {
+    setPermsState(prev => {
+      const next = new Set(prev[gradeId])
+      next.has(pageKey) ? next.delete(pageKey) : next.add(pageKey)
+      return { ...prev, [gradeId]: next }
+    })
+  }
+
+  async function savePerms(gradeId: string) {
+    setPermsLoading(p => ({ ...p, [gradeId]: true }))
+    await fetch(`/api/employees/grades/${gradeId}/permissions`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pages: Array.from(permsState[gradeId] ?? []) }),
+    })
+    setPermsLoading(p => ({ ...p, [gradeId]: false }))
+    setPermsSaved(p => ({ ...p, [gradeId]: true }))
+    setTimeout(() => setPermsSaved(p => ({ ...p, [gradeId]: false })), 3000)
+  }
 
   async function save() {
     setLoading(true)
@@ -154,6 +183,68 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
           ))}
         </CardContent>
       </Card>
+
+      {grades.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Droits d'accès par grade</CardTitle>
+            <CardDescription>Définissez les pages accessibles pour chaque grade. Si aucune page n'est cochée, le grade hérite des droits par défaut de son rôle.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Grade tabs */}
+            <div className="flex gap-2 flex-wrap">
+              {grades.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => setSelectedGradeId(g.id)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-all ${selectedGradeId === g.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  {g.name}
+                  {permsState[g.id]?.size > 0 && (
+                    <span className="ml-1.5 text-[10px] opacity-70">({permsState[g.id].size})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {selectedGradeId && (
+              <div className="rounded-lg border p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Pages accessibles — {grades.find(g => g.id === selectedGradeId)?.name}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {CONFIGURABLE_PAGES.map(page => {
+                    const checked = permsState[selectedGradeId]?.has(page.key) ?? false
+                    return (
+                      <label key={page.key} className="flex items-center gap-2.5 rounded-md p-2 hover:bg-muted/50 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => togglePage(selectedGradeId, page.key)}
+                          className="h-4 w-4 rounded border-border accent-primary"
+                        />
+                        <span className="text-sm">{page.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    {permsState[selectedGradeId]?.size === 0
+                      ? "Aucune restriction — droits par défaut du rôle"
+                      : `${permsState[selectedGradeId]?.size} page(s) autorisée(s)`}
+                  </p>
+                  <Button size="sm" onClick={() => savePerms(selectedGradeId)} disabled={permsLoading[selectedGradeId]}>
+                    {permsSaved[selectedGradeId]
+                      ? <><CheckCircle className="h-3.5 w-3.5" /> Enregistré</>
+                      : permsLoading[selectedGradeId] ? "Enregistrement..." : <><Save className="h-3.5 w-3.5" /> Enregistrer</>}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -18,6 +18,8 @@ const createSchema = z.object({
   note: z.string().max(500).optional(),
   partnerId: z.string().optional().nullable(),
   loyaltyCardId: z.string().optional().nullable(),
+  customAdjustmentType: z.enum(["PERCENT", "FIXED"]).optional().nullable(),
+  customAdjustmentValue: z.number().min(-100000).max(100000).optional().nullable(),
 })
 
 export async function POST(req: NextRequest) {
@@ -79,7 +81,19 @@ export async function POST(req: NextRequest) {
   // Apply best discount (not cumulative)
   const discountPercent = Math.max(partnerDiscount, loyaltyDiscount)
   const discountAmount = subtotal * (discountPercent / 100)
-  const total = Math.max(0, subtotal - discountAmount)
+  const afterDiscount = Math.max(0, subtotal - discountAmount)
+
+  // Apply custom adjustment (majoration or réduction)
+  let customAdjustmentAmount = 0
+  const { customAdjustmentType, customAdjustmentValue } = parsed.data
+  if (customAdjustmentType && customAdjustmentValue != null) {
+    if (customAdjustmentType === "PERCENT") {
+      customAdjustmentAmount = afterDiscount * (customAdjustmentValue / 100)
+    } else {
+      customAdjustmentAmount = customAdjustmentValue
+    }
+  }
+  const total = Math.max(0, afterDiscount + customAdjustmentAmount)
 
   const order = await prisma.order.create({
     data: {
@@ -87,6 +101,8 @@ export async function POST(req: NextRequest) {
       partnerId: partner?.id ?? null,
       loyaltyCardId: loyaltyCard?.id ?? null,
       total, discountAmount,
+      customAdjustmentType: customAdjustmentType ?? null,
+      customAdjustmentValue: customAdjustmentValue ?? null,
       status: "CONFIRMED",
       note: parsed.data.note,
       weekNumber, year,

@@ -18,6 +18,7 @@ interface LoyaltyCard { id: string; firstName: string; lastName: string; discoun
 interface OrderLine { quantity: number; unitPrice: number; menuItem: { name: string } }
 interface Order {
   id: string; total: number; discountAmount: number; status: string; createdAt: Date; note: string | null
+  customAdjustmentType: string | null; customAdjustmentValue: number | null
   employee: { id: string; firstName: string; lastName: string } | null
   partner: Partner | null
   loyaltyCard: LoyaltyCard | null
@@ -44,6 +45,9 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   const [filterDateFrom, setFilterDateFrom] = useState("")
   const [filterDateTo, setFilterDateTo] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
+  const [adjSign, setAdjSign] = useState<"plus" | "minus">("minus")
+  const [adjType, setAdjType] = useState<"PERCENT" | "FIXED">("PERCENT")
+  const [adjValue, setAdjValue] = useState("")
 
   const fmt = (n: number) => formatCurrency(n, currency)
   const categories = useMemo(() => ["Tous", ...new Set(menuItems.map(m => m.category))], [menuItems])
@@ -59,7 +63,13 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   const discountPercent = Math.max(partnerDiscount, loyaltyDiscount)
   const subtotal = cart.reduce((s, c) => s + c.item.price * c.qty, 0)
   const discountAmount = subtotal * (discountPercent / 100)
-  const total = Math.max(0, subtotal - discountAmount)
+  const afterDiscount = Math.max(0, subtotal - discountAmount)
+  const adjRawValue = parseFloat(adjValue) || 0
+  const adjSignedValue = adjSign === "minus" ? -adjRawValue : adjRawValue
+  const customAdjustmentAmount = adjRawValue > 0
+    ? adjType === "PERCENT" ? afterDiscount * (adjSignedValue / 100) : adjSignedValue
+    : 0
+  const total = Math.max(0, afterDiscount + customAdjustmentAmount)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
   const appliedDiscount = discountPercent > 0 ? (partnerDiscount >= loyaltyDiscount ? selectedPartner?.name : `${selectedLoyalty?.firstName} ${selectedLoyalty?.lastName}`) : null
 
@@ -94,10 +104,12 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
           note: note || undefined,
           partnerId: selectedPartnerId || null,
           loyaltyCardId: selectedLoyaltyId || null,
+          customAdjustmentType: adjRawValue > 0 ? adjType : null,
+          customAdjustmentValue: adjRawValue > 0 ? adjSignedValue : null,
         }),
       })
       if (!res.ok) throw new Error()
-      setCart([]); setNote(""); setSelectedPartnerId(""); setSelectedLoyaltyId(""); router.refresh()
+      setCart([]); setNote(""); setSelectedPartnerId(""); setSelectedLoyaltyId(""); setAdjValue(""); router.refresh()
     } catch { alert("Erreur") } finally { setLoading(false) }
   }
 
@@ -238,9 +250,44 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                     </div>
                   )}
 
-                  <div className="border-t pt-3 flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Total</span>
-                    <span className="text-xl font-bold">{fmt(total)}</span>
+                  {/* Custom adjustment */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Ajustement personnalisé</Label>
+                    <div className="flex gap-1.5">
+                      <div className="flex rounded-md border border-border overflow-hidden">
+                        <button onClick={() => setAdjSign("minus")} className={`px-2.5 py-1 text-xs font-semibold transition-colors ${adjSign === "minus" ? "bg-destructive text-destructive-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}>−</button>
+                        <button onClick={() => setAdjSign("plus")} className={`px-2.5 py-1 text-xs font-semibold transition-colors ${adjSign === "plus" ? "bg-emerald-500 text-white" : "bg-transparent text-muted-foreground hover:text-foreground"}`}>+</button>
+                      </div>
+                      <Input
+                        type="number" min="0" step="0.01"
+                        placeholder="0"
+                        value={adjValue}
+                        onChange={e => setAdjValue(e.target.value)}
+                        className="h-8 text-xs flex-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <div className="flex rounded-md border border-border overflow-hidden">
+                        <button onClick={() => setAdjType("PERCENT")} className={`px-2.5 py-1 text-xs font-semibold transition-colors ${adjType === "PERCENT" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}>%</button>
+                        <button onClick={() => setAdjType("FIXED")} className={`px-2.5 py-1 text-xs font-semibold transition-colors ${adjType === "FIXED" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}>{currency}</button>
+                      </div>
+                    </div>
+                    {adjRawValue > 0 && (
+                      <p className={`text-xs font-medium ${adjSign === "minus" ? "text-destructive" : "text-emerald-500"}`}>
+                        {adjSign === "minus" ? "−" : "+"}{fmt(Math.abs(customAdjustmentAmount))}
+                        {adjType === "PERCENT" && ` (${adjRawValue}%)`}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-3 space-y-1.5">
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Sous-total</span><span>{fmt(subtotal)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total</span>
+                      <span className="text-xl font-bold">{fmt(total)}</span>
+                    </div>
                   </div>
 
                   <Textarea placeholder="Note (optionnel)" rows={2} className="text-xs" value={note} onChange={e => setNote(e.target.value)} />
@@ -321,7 +368,24 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                         {order.loyaltyCard && <Badge variant="secondary" className="text-[10px] gap-1"><CreditCard className="h-2.5 w-2.5" />{order.loyaltyCard.firstName} {order.loyaltyCard.lastName}</Badge>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-emerald-500 text-sm">{order.discountAmount > 0 ? `−${fmt(order.discountAmount)}` : "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {order.discountAmount > 0 && <div className="text-emerald-500">−{fmt(order.discountAmount)}</div>}
+                      {(() => {
+                        if (order.customAdjustmentValue == null || order.customAdjustmentValue === 0) return null
+                        const lineSubtotal = order.lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
+                        const afterDiscount = lineSubtotal - order.discountAmount
+                        const adjAmt = order.customAdjustmentType === "PERCENT"
+                          ? afterDiscount * (order.customAdjustmentValue / 100)
+                          : order.customAdjustmentValue
+                        return (
+                          <div className={adjAmt < 0 ? "text-destructive" : "text-emerald-500"}>
+                            {adjAmt < 0 ? "−" : "+"}{fmt(Math.abs(adjAmt))}
+                            {order.customAdjustmentType === "PERCENT" && ` (${Math.abs(order.customAdjustmentValue)}%)`}
+                          </div>
+                        )
+                      })()}
+                      {order.discountAmount === 0 && (order.customAdjustmentValue == null || order.customAdjustmentValue === 0) && "—"}
+                    </TableCell>
                     <TableCell className="font-semibold">{fmt(order.total)}</TableCell>
                     <TableCell><StatusBadge s={order.status} /></TableCell>
                     <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(order.createdAt)}</TableCell>

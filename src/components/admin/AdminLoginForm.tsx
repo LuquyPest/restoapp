@@ -27,8 +27,7 @@ export default function AdminLoginForm() {
       const data = await res.json()
       setError(data.error ?? "Identifiants incorrects")
     } else {
-      router.push("/admin")
-      router.refresh()
+      window.location.href = "/admin"
     }
   }
 

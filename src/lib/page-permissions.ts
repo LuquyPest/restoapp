@@ -1,0 +1,14 @@
+export const CONFIGURABLE_PAGES = [
+  { key: "dashboard",      label: "Dashboard",        defaultRoles: ["OWNER","MANAGER","EMPLOYEE"] },
+  { key: "orders",         label: "Commandes",        defaultRoles: ["OWNER","MANAGER","EMPLOYEE"] },
+  { key: "loyalty",        label: "Cartes fidélité",  defaultRoles: ["OWNER","MANAGER"] },
+  { key: "employees",      label: "Employés (RH)",    defaultRoles: ["OWNER","MANAGER"] },
+  { key: "sales",          label: "Liste des ventes", defaultRoles: ["OWNER","MANAGER"] },
+  { key: "sales/products", label: "Ventes produits",  defaultRoles: ["OWNER","MANAGER"] },
+  { key: "report",         label: "Bilan",            defaultRoles: ["OWNER","MANAGER"] },
+  { key: "menu",           label: "Carte (menu)",     defaultRoles: ["OWNER","MANAGER"] },
+  { key: "partners",       label: "Partenaires",      defaultRoles: ["OWNER","MANAGER"] },
+  { key: "suppliers",      label: "Fournisseurs",     defaultRoles: ["OWNER","MANAGER"] },
+  { key: "invoices",       label: "Factures",         defaultRoles: ["OWNER","MANAGER"] },
+  { key: "charges",        label: "Charges",          defaultRoles: ["OWNER","MANAGER"] },
+] as const

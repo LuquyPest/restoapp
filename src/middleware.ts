@@ -40,7 +40,8 @@ export default auth(async (req) => {
   }
 
   // Routes API admin : vérification JWT (défense en profondeur)
-  if (isApiAdmin) {
+  // Exclure /api/admin/login sinon le middleware bloque la connexion elle-même
+  if (isApiAdmin && nextUrl.pathname !== "/api/admin/login") {
     const token = req.cookies.get("admin_token")?.value
     if (!token) {
       return new NextResponse(JSON.stringify({ error: "Non autorisé" }), {

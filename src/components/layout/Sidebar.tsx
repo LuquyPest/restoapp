@@ -22,41 +22,46 @@ const navGroups = [
   {
     label: "Principal",
     items: [
-      { label: "Dashboard",    href: "/dashboard", icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
-      { label: "Commandes",    href: "/orders",    icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
+      { key: "dashboard", label: "Dashboard",       href: "/dashboard", icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
+      { key: "orders",    label: "Commandes",       href: "/orders",    icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
+      { key: "loyalty",   label: "Cartes fidélité", href: "/loyalty",   icon: CreditCard,      roles: ["OWNER","MANAGER"] },
+    ],
+  },
+  {
+    label: "RH",
+    items: [
+      { key: "employees", label: "Employés", href: "/employees", icon: Users, roles: ["OWNER","MANAGER"] },
     ],
   },
   {
     label: "Analyse",
     items: [
-      { label: "Liste des ventes",  href: "/sales",          icon: TrendingUp,  roles: ["OWNER","MANAGER"] },
-      { label: "Ventes produits",   href: "/sales/products", icon: BarChart3,   roles: ["OWNER","MANAGER"] },
-      { label: "Bilan",             href: "/report",         icon: BarChart3,   roles: ["OWNER"] },
+      { key: "sales",          label: "Liste des ventes", href: "/sales",          icon: TrendingUp, roles: ["OWNER","MANAGER"] },
+      { key: "sales/products", label: "Ventes produits",  href: "/sales/products", icon: BarChart3,  roles: ["OWNER","MANAGER"] },
+      { key: "report",         label: "Bilan",            href: "/report",         icon: BarChart3,  roles: ["OWNER","MANAGER"] },
     ],
   },
   {
     label: "Gestion",
     items: [
-      { label: "Employés",         href: "/employees", icon: Users,          roles: ["OWNER","MANAGER"] },
-      { label: "Carte",            href: "/menu",      icon: UtensilsCrossed,roles: ["OWNER","MANAGER"] },
-      { label: "Partenaires",      href: "/partners",  icon: Handshake,      roles: ["OWNER","MANAGER"] },
-      { label: "Cartes fidélité",  href: "/loyalty",   icon: CreditCard,     roles: ["OWNER","MANAGER"] },
-      { label: "Fournisseurs",     href: "/suppliers", icon: Truck,          roles: ["OWNER","MANAGER"] },
-      { label: "Factures",         href: "/invoices",  icon: FileText,       roles: ["OWNER","MANAGER"] },
-      { label: "Charges",          href: "/charges",   icon: Receipt,        roles: ["OWNER","MANAGER"] },
+      { key: "menu",      label: "Carte",        href: "/menu",      icon: UtensilsCrossed, roles: ["OWNER","MANAGER"] },
+      { key: "partners",  label: "Partenaires",  href: "/partners",  icon: Handshake,       roles: ["OWNER","MANAGER"] },
+      { key: "suppliers", label: "Fournisseurs", href: "/suppliers", icon: Truck,           roles: ["OWNER","MANAGER"] },
+      { key: "invoices",  label: "Factures",     href: "/invoices",  icon: FileText,        roles: ["OWNER","MANAGER"] },
+      { key: "charges",   label: "Charges",      href: "/charges",   icon: Receipt,         roles: ["OWNER","MANAGER"] },
     ],
   },
   {
     label: "Système",
     items: [
-      { label: "Paramètres", href: "/settings", icon: Settings, roles: ["OWNER"] },
+      { key: "settings", label: "Paramètres", href: "/settings", icon: Settings, roles: ["OWNER"] },
     ],
   },
 ]
 
-interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null }
+interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null }
 
-export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo }: Props) {
+export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null }: Props) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [profileModal, setProfileModal] = useState(false)
@@ -107,7 +112,12 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
           {navGroups.map(group => {
-            const items = group.items.filter(i => i.roles.includes(userRole))
+            const items = group.items.filter(i => {
+              if (!i.roles.includes(userRole)) return false
+              if (userRole === "OWNER") return true
+              if (gradePermissions !== null) return gradePermissions.includes(i.key)
+              return true
+            })
             if (items.length === 0) return null
             return (
               <div key={group.label}>
