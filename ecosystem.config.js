@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "restoapp",
       script: "node_modules/.bin/next",
-      args: "start",
+      args: "start --hostname 127.0.0.1",
       cwd: "./",
       instances: 1,
       autorestart: true,

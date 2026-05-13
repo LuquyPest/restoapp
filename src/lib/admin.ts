@@ -1,9 +1,10 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
 
-const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "fallback-secret-change-this"
-)
+if (!process.env.AUTH_SECRET) {
+  throw new Error("AUTH_SECRET est manquant — définissez-le dans .env")
+}
+const ADMIN_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET)
 
 export async function signAdminToken() {
   return new SignJWT({ role: "superadmin" })

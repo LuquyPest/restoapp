@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, Eye, EyeOff } from "lucide-react"
+import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, Eye, EyeOff, ClipboardList } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -97,9 +97,14 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
           <span className="font-semibold text-sm">Administration RestoManager</span>
           <Badge variant="destructive" className="text-[10px]">SUPER ADMIN</Badge>
         </div>
-        <Button variant="ghost" size="sm" onClick={logout}>
-          <LogOut className="h-4 w-4" /> Déconnexion
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/admin/logs")}>
+            <ClipboardList className="h-4 w-4" /> Logs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={logout}>
+            <LogOut className="h-4 w-4" /> Déconnexion
+          </Button>
+        </div>
       </header>
 
       <main className="p-8 max-w-5xl mx-auto space-y-6">

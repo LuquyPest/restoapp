@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -23,6 +24,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12)
   await prisma.user.update({ where: { id: employee.userId }, data: { passwordHash } })
+
+  log({
+    action: "PASSWORD_RESET",
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    restaurantId: restaurantId ?? undefined,
+    ip: getIp(req.headers),
+    metadata: { targetEmployeeId: id },
+  })
 
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import { z } from "zod"
 
 const generateSchema = z.object({
@@ -89,5 +90,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  log({
+    action: "PAYROLL_GENERATED",
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    restaurantId,
+    ip: getIp(req.headers),
+    metadata: { weekNumber, year, count: created.length },
+  })
   return NextResponse.json(created, { status: 201 })
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminSession } from "@/lib/admin"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
+import { z } from "zod"
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ok = await getAdminSession()
@@ -27,8 +29,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await prisma.user.deleteMany({ where: { restaurantId: id } })
   await prisma.restaurant.delete({ where: { id } })
 
+  log({
+    action: "RESTAURANT_DELETED",
+    ip: getIp(req.headers),
+    metadata: { restaurantId: id, restaurantName: restaurant.name },
+  })
   return NextResponse.json({ ok: true })
 }
+
+const patchSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  currency: z.string().min(1).max(5).optional(),
+})
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ok = await getAdminSession()
@@ -36,12 +48,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params
   const body = await req.json()
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
   const restaurant = await prisma.restaurant.update({
     where: { id },
     data: {
-      ...(body.name && { name: body.name }),
-      ...(body.currency && { currency: body.currency }),
+      ...(parsed.data.name && { name: parsed.data.name }),
+      ...(parsed.data.currency && { currency: parsed.data.currency }),
     },
   })
   return NextResponse.json(restaurant)

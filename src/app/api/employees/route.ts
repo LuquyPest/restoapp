@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -37,6 +38,14 @@ export async function POST(req: NextRequest) {
       },
     },
     include: { employee: { include: { grade: true } } },
+  })
+  log({
+    action: "EMPLOYEE_CREATED",
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    restaurantId,
+    ip: getIp(req.headers),
+    metadata: { employeeEmail: email, employeeName: `${firstName} ${lastName}` },
   })
   return NextResponse.json(user.employee, { status: 201 })
 }

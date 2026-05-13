@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+
+const patchSchema = z.object({
+  addWeeks: z.number().int().min(-52).max(52).optional(),
+  isActive: z.boolean().optional(),
+  discountPercent: z.number().min(0).max(100).optional(),
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
+})
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -9,21 +18,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
   const card = await prisma.loyaltyCard.findFirst({ where: { id, restaurantId } })
   if (!card) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
-  // Add or remove weeks
-  let updateData: any = {}
-  if (body.addWeeks !== undefined) {
+  const updateData: Record<string, unknown> = {}
+  if (parsed.data.addWeeks !== undefined) {
     const current = new Date(card.expiresAt)
-    current.setDate(current.getDate() + body.addWeeks * 7)
+    current.setDate(current.getDate() + parsed.data.addWeeks * 7)
     updateData.expiresAt = current
   }
-  if (body.isActive !== undefined) updateData.isActive = body.isActive
-  if (body.discountPercent !== undefined) updateData.discountPercent = body.discountPercent
-  if (body.firstName !== undefined) updateData.firstName = body.firstName
-  if (body.lastName !== undefined) updateData.lastName = body.lastName
+  if (parsed.data.isActive !== undefined) updateData.isActive = parsed.data.isActive
+  if (parsed.data.discountPercent !== undefined) updateData.discountPercent = parsed.data.discountPercent
+  if (parsed.data.firstName !== undefined) updateData.firstName = parsed.data.firstName
+  if (parsed.data.lastName !== undefined) updateData.lastName = parsed.data.lastName
 
   const updated = await prisma.loyaltyCard.update({ where: { id }, data: updateData })
   return NextResponse.json(updated)

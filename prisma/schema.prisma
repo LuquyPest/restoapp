@@ -327,6 +327,22 @@ enum ChargeType {
   NON_DEDUCTIBLE
 }
 
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  userId       String?
+  userEmail    String?
+  restaurantId String?
+  ip           String?
+  metadata     String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([action])
+  @@index([restaurantId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 model LoyaltyCard {
   id              String   @id @default(cuid())
   restaurantId    String

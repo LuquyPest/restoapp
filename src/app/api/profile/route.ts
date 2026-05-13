@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -22,14 +23,22 @@ export async function PATCH(req: NextRequest) {
   const { phone, accountNumber, currentPassword, newPassword } = parsed.data
 
   if (newPassword) {
+    if (!currentPassword) {
+      return NextResponse.json({ error: "Mot de passe actuel requis" }, { status: 400 })
+    }
     const user = await prisma.user.findUnique({ where: { id: session.user.id } })
     if (!user) return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 })
-    if (currentPassword) {
-      const valid = await bcrypt.compare(currentPassword, user.passwordHash)
-      if (!valid) return NextResponse.json({ error: "Mot de passe actuel incorrect" }, { status: 400 })
-    }
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash)
+    if (!valid) return NextResponse.json({ error: "Mot de passe actuel incorrect" }, { status: 400 })
     const hash = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash: hash } })
+    log({
+      action: "PASSWORD_CHANGED",
+      userId: session.user.id,
+      userEmail: session.user.email ?? undefined,
+      restaurantId: session.user.restaurantId ?? undefined,
+      ip: getIp(req.headers),
+    })
   }
 
   const employee = await prisma.employee.findFirst({ where: { userId: session.user.id } })

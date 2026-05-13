@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminSession, slugifyRestaurantName } from "@/lib/admin"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -80,5 +81,10 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  log({
+    action: "RESTAURANT_CREATED",
+    ip: getIp(req.headers),
+    metadata: { restaurantId: restaurant.id, restaurantName: name, ownerEmail: email },
+  })
   return NextResponse.json({ restaurant, email, user: { id: user.id, email, name: ownerName } }, { status: 201 })
 }

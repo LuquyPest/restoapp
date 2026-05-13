@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+
+const patchSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  amount: z.number().positive().optional(),
+  type: z.enum(["DEDUCTIBLE", "NON_DEDUCTIBLE"]).optional(),
+  isActive: z.boolean().optional(),
+})
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -9,15 +17,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
   const charge = await prisma.charge.findFirst({ where: { id, restaurantId } })
   if (!charge) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.charge.update({
     where: { id },
     data: {
-      ...(body.name !== undefined && { name: body.name }),
-      ...(body.amount !== undefined && { amount: body.amount }),
-      ...(body.type !== undefined && { type: body.type }),
-      ...(body.isActive !== undefined && { isActive: body.isActive }),
+      ...(parsed.data.name !== undefined && { name: parsed.data.name }),
+      ...(parsed.data.amount !== undefined && { amount: parsed.data.amount }),
+      ...(parsed.data.type !== undefined && { type: parsed.data.type }),
+      ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
     },
   })
   return NextResponse.json(updated)

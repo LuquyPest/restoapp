@@ -85,7 +85,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
       const res = await fetch("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lines: cart.map(c => ({ menuItemId: c.item.id, quantity: c.qty, unitPrice: c.item.price, costPrice: c.item.costPrice })),
+          lines: cart.map(c => ({ menuItemId: c.item.id, quantity: c.qty })),
           note: note || undefined,
           partnerId: selectedPartnerId || null,
           loyaltyCardId: selectedLoyaltyId || null,

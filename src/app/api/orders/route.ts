@@ -14,8 +14,6 @@ const createSchema = z.object({
   lines: z.array(z.object({
     menuItemId: z.string(),
     quantity: z.number().int().positive(),
-    unitPrice: z.number().positive(),
-    costPrice: z.number().min(0),
   })).min(1),
   note: z.string().optional(),
   partnerId: z.string().optional().nullable(),
@@ -35,6 +33,16 @@ export async function POST(req: NextRequest) {
   const weekNumber = getISOWeek(now)
   const year = now.getFullYear()
 
+  // Fetch prices from DB — never trust client-supplied prices
+  const menuItemIds = parsed.data.lines.map(l => l.menuItemId)
+  const menuItems = await prisma.menuItem.findMany({
+    where: { id: { in: menuItemIds }, restaurantId, isAvailable: true },
+  })
+  if (menuItems.length !== menuItemIds.length) {
+    return NextResponse.json({ error: "Article introuvable ou indisponible" }, { status: 404 })
+  }
+  const priceMap = new Map(menuItems.map(m => [m.id, m]))
+
   let employee = await prisma.employee.findFirst({ where: { userId: session.user.id } })
   if (!employee) {
     const grade = await prisma.grade.findFirst({ where: { restaurantId } })
@@ -48,7 +56,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const subtotal = parsed.data.lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
+  const subtotal = parsed.data.lines.reduce((s, l) => s + priceMap.get(l.menuItemId)!.price * l.quantity, 0)
 
   // Get partner discount
   let partnerDiscount = 0
@@ -84,8 +92,10 @@ export async function POST(req: NextRequest) {
       weekNumber, year,
       lines: {
         create: parsed.data.lines.map(l => ({
-          menuItemId: l.menuItemId, quantity: l.quantity,
-          unitPrice: l.unitPrice, costPrice: l.costPrice,
+          menuItemId: l.menuItemId,
+          quantity: l.quantity,
+          unitPrice: priceMap.get(l.menuItemId)!.price,
+          costPrice: priceMap.get(l.menuItemId)!.costPrice,
         })),
       },
     },
