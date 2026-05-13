@@ -8,9 +8,6 @@ export default async function ChargesPage() {
   if (!session) redirect("/login")
   const { restaurantId, role } = session.user
   if (role === "EMPLOYEE") redirect("/dashboard")
-  const [charges, restaurant] = await Promise.all([
-    prisma.charge.findMany({ where: { restaurantId }, orderBy: { createdAt: "desc" } }),
-    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
-  ])
-  return <ChargesClient charges={charges} currency={restaurant?.currency ?? "$"} />
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
+  return <ChargesClient currency={restaurant?.currency ?? "$"} />
 }

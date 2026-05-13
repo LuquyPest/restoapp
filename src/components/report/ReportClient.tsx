@@ -15,9 +15,9 @@ function getISOWeek(d: Date) {
   return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
 }
 
-interface Props { currency: string; taxRate: number; bonusRate: number; dividendRate: number }
+interface Props { currency: string; bonusRate: number; dividendRate: number }
 
-export default function ReportClient({ currency, taxRate: defaultTax, bonusRate: defaultBonus, dividendRate: defaultDividend }: Props) {
+export default function ReportClient({ currency, bonusRate: defaultBonus, dividendRate: defaultDividend }: Props) {
   const now = new Date()
   const [week, setWeek] = useState(getISOWeek(now))
   const [year, setYear] = useState(now.getFullYear())
@@ -290,7 +290,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bilan hebdomadaire</h1>
-          <p className="text-sm text-muted-foreground mt-1">Impôts {pct(defaultTax)} · Prime {pct(defaultBonus)} · Dividendes {pct(defaultDividend)}</p>
+          <p className="text-sm text-muted-foreground mt-1">Résumé financier par semaine</p>
         </div>
         <Button onClick={saveAndDownload} disabled={downloading || !data}>
           {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -345,11 +345,10 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
                 <Row label="Bénéfice après salaires" value={fmt(data.afterSalaries)} bold />
                 <Row label="− Charges déductibles" value={fmt(data.chargesDeductible)} bold color="text-amber-500" />
                 <Row label="Bénéfice brut" value={fmt(data.grossProfit)} bold />
-                <Row label={`Impôts (${pct(data.taxRate)})`} value={fmt(data.taxes)} indent color="text-destructive" />
+                <Row label="Impôts" value={fmt(data.taxes)} indent color="text-destructive" />
                 <Row label="Bénéfice net" value={fmt(data.netProfit)} bold color={(data.netProfit ?? 0) >= 0 ? "text-emerald-500" : "text-destructive"} />
-                <Row label={`Prime employés (${pct(data.bonusRate)})`} value={fmt(data.bonusTotal)} indent color="text-amber-500" />
-                <Row label="Après prime" value={fmt(data.afterBonus)} bold />
-                <Row label={`Dividendes (${pct(data.dividendRate)})`} value={fmt(data.dividendTotal)} indent />
+                <Row label="Prime employés" value={fmt(data.bonusTotal)} indent color="text-amber-500" />
+                <Row label="Dividendes" value={fmt(data.dividendTotal)} indent />
                 <Row label="Trésorerie" value={fmt(data.treasury)} indent />
                 <Row label="− Charges non déductibles" value={fmt(data.chargesNonDeductible)} indent color="text-destructive" />
                 <Row label="Bénéfice final" value={fmt(data.finalProfit)} bold color={(data.finalProfit ?? 0) >= 0 ? "text-emerald-500" : "text-destructive"} />

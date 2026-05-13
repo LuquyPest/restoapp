@@ -1,20 +1,54 @@
 "use client"
 import { formatCurrency } from "@/lib/utils"
-import { TrendingUp, ShoppingCart, Banknote, Award } from "lucide-react"
+import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-interface EmployeeStat { id: string; firstName: string; lastName: string; gradeName: string; salaryPercent: number; revenue: number; costRevenue: number; netRevenue: number; salary: number; orderCount: number }
-export default function SalesClient({ stats, currency }: { stats: EmployeeStat[]; currency: string }) {
+interface EmployeeStat {
+  id: string; firstName: string; lastName: string
+  gradeName: string; salaryPercent: number
+  revenue: number; costRevenue: number; netRevenue: number; salary: number; orderCount: number
+}
+interface Props {
+  stats: EmployeeStat[]; currency: string
+  selectedWeek: number; selectedYear: number
+  currentWeek: number; currentYear: number
+}
+
+export default function SalesClient({ stats, currency, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
+  const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
-  const totals = { revenue: stats.reduce((s,e) => s+e.revenue, 0), cost: stats.reduce((s,e) => s+e.costRevenue, 0), salaries: stats.reduce((s,e) => s+e.salary, 0) }
+  const totals = {
+    revenue: stats.reduce((s,e) => s+e.revenue, 0),
+    cost: stats.reduce((s,e) => s+e.costRevenue, 0),
+    salaries: stats.reduce((s,e) => s+e.salary, 0),
+  }
+  const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
+
+  function navigate(delta: number) {
+    let w = selectedWeek + delta; let y = selectedYear
+    if (w < 1) { w = 52; y-- } if (w > 52) { w = 1; y++ }
+    router.push(`/sales?week=${w}&year=${y}`)
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Liste des ventes</h1>
-        <p className="text-sm text-muted-foreground mt-1">Performance de l'équipe cette semaine</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Liste des ventes</h1>
+          <p className="text-sm text-muted-foreground mt-1">Performance de l'équipe</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-1.5 rounded-lg border bg-card px-4 py-2 text-sm font-bold">
+            S{String(selectedWeek).padStart(2,"0")} {selectedYear}
+            {isCurrentWeek && <Badge variant="default" className="text-[10px] px-1.5 ml-1">En cours</Badge>}
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)} disabled={isCurrentWeek}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -35,7 +69,13 @@ export default function SalesClient({ stats, currency }: { stats: EmployeeStat[]
 
       <Card>
         <Table>
-          <TableHeader><TableRow><TableHead>Employé</TableHead><TableHead>Grade</TableHead><TableHead>Commandes</TableHead><TableHead>CA brut</TableHead><TableHead>Coût revient</TableHead><TableHead>CA net</TableHead><TableHead>%</TableHead><TableHead>Salaire estimé</TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Employé</TableHead><TableHead>Grade</TableHead><TableHead>Commandes</TableHead>
+              <TableHead>CA brut</TableHead><TableHead>Coût revient</TableHead><TableHead>CA net</TableHead>
+              <TableHead>%</TableHead><TableHead>Salaire estimé</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {stats.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">Aucune vente cette semaine</TableCell></TableRow>

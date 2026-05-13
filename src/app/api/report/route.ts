@@ -27,6 +27,57 @@ function calculateTax(profit: number): number {
   return (50000 * 0.20) + (400000 * 0.30) + (profit - 500000) * 0.40
 }
 
+function computeBilan(
+  orders: any[], charges: any[], employees: any[],
+  bonusRate: number, dividendRate: number
+) {
+  const revenue = orders.reduce((s: number, o: any) => s + o.total, 0)
+  const costRevenue = orders.reduce((s: number, o: any) => s + (o.lines ?? []).reduce((ls: number, l: any) => ls + l.costPrice * l.quantity, 0), 0)
+  const partnerRevenue = orders.filter((o: any) => o.partnerId).reduce((s: number, o: any) => s + o.total, 0)
+  const clientRevenue = revenue - partnerRevenue
+
+  const employeeStats = employees.map((emp: any) => {
+    const empOrders = orders.filter((o: any) => o.employeeId === emp.id)
+    const empRevenue = empOrders.reduce((s: number, o: any) => s + o.total, 0)
+    const empCost = empOrders.reduce((s: number, o: any) => s + (o.lines ?? []).reduce((ls: number, l: any) => ls + l.costPrice * l.quantity, 0), 0)
+    const empNetRevenue = empRevenue - empCost
+    const salary = empRevenue * (emp.grade.salaryPercent / 100)
+    return {
+      employeeId: emp.id, firstName: emp.firstName, lastName: emp.lastName,
+      grade: emp.grade.name, salaryPercent: emp.grade.salaryPercent,
+      dividendPercent: emp.grade.dividendPercent ?? 0,
+      accountNumber: emp.accountNumber,
+      revenue: empRevenue, costRevenue: empCost, netRevenue: empNetRevenue, salary,
+    }
+  })
+
+  const totalSalaries = employeeStats.reduce((s: number, e: any) => s + e.salary, 0)
+  // Only include charges for this week (non-global filtered by caller, global always included)
+  const chargesDeductible = charges.filter((c: any) => c.type === "DEDUCTIBLE").reduce((s: number, c: any) => s + c.amount, 0)
+  const chargesNonDeductible = charges.filter((c: any) => c.type === "NON_DEDUCTIBLE").reduce((s: number, c: any) => s + c.amount, 0)
+
+  const afterSalaries = revenue - totalSalaries
+  const grossProfit = afterSalaries - chargesDeductible
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
+  const netProfit = grossProfit - taxes
+  const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
+  const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
+  const treasury = netProfit - bonusTotal - dividendTotal - chargesNonDeductible
+  const finalProfit = treasury
+
+  const employeeStatsWithDividend = employeeStats.map((emp: any) => ({
+    ...emp,
+    dividend: dividendTotal * ((emp.dividendPercent ?? 0) / 100),
+  }))
+
+  return {
+    revenue, costRevenue, totalSalaries, chargesDeductible, chargesNonDeductible,
+    afterSalaries, grossProfit, taxes, netProfit, bonusTotal,
+    afterBonus: netProfit, dividendTotal, treasury, finalProfit,
+    clientRevenue, partnerRevenue, employeeStats: employeeStatsWithDividend,
+  }
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
@@ -38,7 +89,7 @@ export async function GET(req: NextRequest) {
   const year = parseInt(url.searchParams.get("year") ?? String(new Date().getFullYear()))
   const { start, end } = getWeekBounds(week, year)
 
-  const [restaurant, orders, charges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
+  const [restaurant, orders, allCharges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
     prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.order.findMany({
       where: { restaurantId, status: "CONFIRMED", weekNumber: week, year },
@@ -54,50 +105,17 @@ export async function GET(req: NextRequest) {
 
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
+  // Filter charges: global (no week) OR matching this week
+  const charges = allCharges.filter((c: any) =>
+    (!c.weekNumber && !c.year) || (c.weekNumber === week && c.year === year)
+  )
+
   const bonusRate = restaurant.bonusRate ?? 10
   const dividendRate = restaurant.dividendRate ?? 72.26
-
-  const revenue = orders.reduce((s, o) => s + o.total, 0)
-  const costRevenue = orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
-  const partnerRevenue = orders.filter(o => o.partnerId).reduce((s, o) => s + o.total, 0)
-  const clientRevenue = revenue - partnerRevenue
-
-  const employeeStats = employees.map(emp => {
-    const empOrders = orders.filter(o => o.employeeId === emp.id)
-    const empRevenue = empOrders.reduce((s, o) => s + o.total, 0)
-    const empCost = empOrders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
-    const empNetRevenue = empRevenue - empCost
-    const salary = empRevenue * (emp.grade.salaryPercent / 100)
-    return {
-      employeeId: emp.id, firstName: emp.firstName, lastName: emp.lastName,
-      grade: emp.grade.name, salaryPercent: emp.grade.salaryPercent,
-      dividendPercent: emp.grade.dividendPercent ?? 0,
-      accountNumber: emp.accountNumber,
-      revenue: empRevenue, costRevenue: empCost, netRevenue: empNetRevenue, salary,
-    }
-  })
-
-  const totalSalaries = employeeStats.reduce((s, e) => s + e.salary, 0)
-  const chargesDeductible = charges.filter(c => c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-  const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-
-  const afterSalaries = revenue - totalSalaries
-  const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
-  const netProfit = grossProfit - taxes
-  const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
-  const afterBonus = netProfit
-  const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
-  const treasury = netProfit - bonusTotal - dividendTotal - chargesNonDeductible
-  const finalProfit = treasury
-
-  const employeeStatsWithDividend = employeeStats.map(emp => ({
-    ...emp,
-    dividend: dividendTotal * ((emp.dividendPercent ?? 0) / 100),
-  }))
+  const bilan = computeBilan(orders, charges, employees, bonusRate, dividendRate)
 
   const partnerMap = new Map<string, { name: string; revenue: number; discount: number }>()
-  for (const order of orders.filter(o => o.partner)) {
+  for (const order of orders.filter((o: any) => o.partner)) {
     const ex = partnerMap.get(order.partnerId!) ?? { name: order.partner!.name, revenue: 0, discount: 0 }
     ex.revenue += order.total; ex.discount += order.discountAmount
     partnerMap.set(order.partnerId!, ex)
@@ -117,44 +135,35 @@ export async function GET(req: NextRequest) {
   const dailyData = days.map((label, i) => {
     const dayStart = new Date(start); dayStart.setDate(start.getDate() + i); dayStart.setHours(0,0,0,0)
     const dayEnd = new Date(dayStart); dayEnd.setHours(23,59,59,999)
-    const value = orders.filter(o => new Date(o.createdAt) >= dayStart && new Date(o.createdAt) <= dayEnd).reduce((s, o) => s + o.total, 0)
+    const value = orders.filter((o: any) => new Date(o.createdAt) >= dayStart && new Date(o.createdAt) <= dayEnd).reduce((s: number, o: any) => s + o.total, 0)
     return { label, value, date: formatDate(dayStart) }
   })
 
   return NextResponse.json({
     weekNumber: week, year,
     weekStart: formatDate(start), weekEnd: formatDate(end),
-    revenue, costRevenue, totalSalaries,
-    chargesDeductible, chargesNonDeductible,
-    afterSalaries, grossProfit, taxes, netProfit,
-    bonusTotal, afterBonus, dividendTotal, treasury, finalProfit,
-    clientRevenue, partnerRevenue,
+    ...bilan,
     bonusRate, dividendRate,
-    employeeStats: employeeStatsWithDividend,
     partnerSummary: Array.from(partnerMap.values()),
-    productStats,
-    dailyData,
-    allOrders: orders.map(o => ({
-      id: o.id, total: o.total, discountAmount: o.discountAmount,
-      createdAt: o.createdAt,
+    productStats, dailyData,
+    allOrders: orders.map((o: any) => ({
+      id: o.id, total: o.total, discountAmount: o.discountAmount, createdAt: o.createdAt,
       employeeName: o.employee ? `${o.employee.firstName} ${o.employee.lastName}` : "—",
       partnerName: o.partner?.name ?? null,
       loyaltyName: o.loyaltyCard ? `${o.loyaltyCard.firstName} ${o.loyaltyCard.lastName}` : null,
-      lines: o.lines.map(l => ({ name: l.menuItem.name, qty: l.quantity, price: l.unitPrice, cost: l.costPrice })),
+      lines: o.lines.map((l: any) => ({ name: l.menuItem.name, qty: l.quantity, price: l.unitPrice, cost: l.costPrice })),
     })),
-    suppliers: suppliers.map(s => ({ name: s.name, contact: s.contact, email: s.email, phone: s.phone })),
-    invoices: invoices.map(i => ({ ref: i.reference, supplier: i.supplier.name, amount: i.amount, dueDate: i.dueDate, status: i.status })),
-    loyaltyCards: loyaltyCards.map(c => ({ name: `${c.firstName} ${c.lastName}`, discount: c.discountPercent, expiresAt: c.expiresAt, isActive: c.isActive })),
-    partners: partners.map(p => ({ name: p.name, discount: p.discountPercent, isActive: p.isActive })),
-    charges: charges.map(c => ({ name: c.name, amount: c.amount, type: c.type, isActive: c.isActive })),
+    suppliers: suppliers.map((s: any) => ({ name: s.name, contact: s.contact, email: s.email, phone: s.phone })),
+    invoices: invoices.map((i: any) => ({ ref: i.reference, supplier: i.supplier.name, amount: i.amount, dueDate: i.dueDate, status: i.status })),
+    loyaltyCards: loyaltyCards.map((c: any) => ({ name: `${c.firstName} ${c.lastName}`, discount: c.discountPercent, expiresAt: c.expiresAt, isActive: c.isActive })),
+    partners: partners.map((p: any) => ({ name: p.name, discount: p.discountPercent, isActive: p.isActive })),
+    charges: charges.map((c: any) => ({ name: c.name, amount: c.amount, type: c.type, isActive: c.isActive })),
     restaurantName: restaurant.name,
     currency: restaurant.currency,
   })
 }
 
-const saveSchema = z.object({
-  week: z.number(), year: z.number(),
-})
+const saveSchema = z.object({ week: z.number(), year: z.number() })
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -165,9 +174,8 @@ export async function POST(req: NextRequest) {
   const parsed = saveSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
   const { week, year } = parsed.data
-  const { start, end } = getWeekBounds(week, year)
 
-  const [restaurant, orders, charges, employees] = await Promise.all([
+  const [restaurant, orders, allCharges, employees] = await Promise.all([
     prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: week, year }, include: { lines: true } }),
     prisma.charge.findMany({ where: { restaurantId, isActive: true } }),
@@ -175,34 +183,18 @@ export async function POST(req: NextRequest) {
   ])
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
+  const charges = allCharges.filter((c: any) =>
+    (!c.weekNumber && !c.year) || (c.weekNumber === week && c.year === year)
+  )
+
   const bonusRate = restaurant.bonusRate ?? 10
   const dividendRate = restaurant.dividendRate ?? 72.26
-  const revenue = orders.reduce((s, o) => s + o.total, 0)
-  const costRevenue = orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.costPrice * l.quantity, 0), 0)
-  const partnerRevenue = orders.filter(o => o.partnerId).reduce((s, o) => s + o.total, 0)
-  const clientRevenue = revenue - partnerRevenue
-  const chargesDeductible = charges.filter(c => c.type === "DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-  const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
-
-  const totalSalaries = employees.reduce((s, emp) => {
-    const empOrders = orders.filter(o => o.employeeId === emp.id)
-    const empRevenue = empOrders.reduce((os, o) => os + o.total, 0)
-    return s + empRevenue * (emp.grade.salaryPercent / 100)
-  }, 0)
-
-  const afterSalaries = revenue - totalSalaries
-  const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
-  const netProfit = grossProfit - taxes
-  const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
-  const afterBonus = netProfit - bonusTotal
-  const dividendTotal = afterBonus > 0 ? afterBonus * (dividendRate / 100) : 0
-  const treasury = afterBonus - dividendTotal
+  const b = computeBilan(orders, charges, employees, bonusRate, dividendRate)
 
   const report = await prisma.weeklyReport.upsert({
     where: { restaurantId_weekNumber_year: { restaurantId, weekNumber: week, year } },
-    create: { restaurantId, weekNumber: week, year, revenue, costRevenue, salaries: totalSalaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
-    update: { revenue, costRevenue, salaries: totalSalaries, chargesDeductible, chargesNonDeductible, grossProfit, taxes, netProfit, bonusTotal, dividendTotal, treasury, partnerRevenue, clientRevenue, savedDividend: dividendTotal, savedTreasury: treasury, taxDeclared: true },
+    create: { restaurantId, weekNumber: week, year, revenue: b.revenue, costRevenue: b.costRevenue, salaries: b.totalSalaries, chargesDeductible: b.chargesDeductible, chargesNonDeductible: b.chargesNonDeductible, grossProfit: b.grossProfit, taxes: b.taxes, netProfit: b.netProfit, bonusTotal: b.bonusTotal, dividendTotal: b.dividendTotal, treasury: b.treasury, partnerRevenue: b.partnerRevenue, clientRevenue: b.clientRevenue, savedDividend: b.dividendTotal, savedTreasury: b.treasury, taxDeclared: true },
+    update: { revenue: b.revenue, costRevenue: b.costRevenue, salaries: b.totalSalaries, chargesDeductible: b.chargesDeductible, chargesNonDeductible: b.chargesNonDeductible, grossProfit: b.grossProfit, taxes: b.taxes, netProfit: b.netProfit, bonusTotal: b.bonusTotal, dividendTotal: b.dividendTotal, treasury: b.treasury, partnerRevenue: b.partnerRevenue, clientRevenue: b.clientRevenue, savedDividend: b.dividendTotal, savedTreasury: b.treasury, taxDeclared: true },
   })
   return NextResponse.json(report)
 }

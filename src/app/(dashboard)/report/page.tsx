@@ -12,9 +12,8 @@ export default async function ReportPage() {
   return (
     <ReportClient
       currency={restaurant?.currency ?? "$"}
-      taxRate={restaurant?.taxRate ?? 11.9}
-      bonusRate={(restaurant as any)?.bonusRate ?? 10}
-      dividendRate={(restaurant as any)?.dividendRate ?? 72.26}
+      bonusRate={(restaurant as any)?.bonusRate ?? 30}
+      dividendRate={(restaurant as any)?.dividendRate ?? 45}
     />
   )
 }

@@ -9,16 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
-interface Restaurant { id: string; name: string; currency: string; taxRate: number; bonusRate?: number; dividendRate?: number }
+interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number }
 
 export default function SettingsClient({ restaurant }: { restaurant: Restaurant }) {
   const router = useRouter()
   const [form, setForm] = useState({
     name: restaurant.name,
     currency: restaurant.currency,
-    taxRate: String(restaurant.taxRate ?? 11.9),
-    bonusRate: String(restaurant.bonusRate ?? 10),
-    dividendRate: String(restaurant.dividendRate ?? 72.26),
+    bonusRate: String(restaurant.bonusRate ?? 30),
+    dividendRate: String(restaurant.dividendRate ?? 45),
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -29,7 +28,6 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.name, currency: form.currency,
-        taxRate: parseFloat(form.taxRate),
         bonusRate: parseFloat(form.bonusRate),
         dividendRate: parseFloat(form.dividendRate),
       }),
@@ -43,14 +41,6 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
     { name: "Employé (EMPLOYEE)", desc: "Dashboard personnel, commandes, carte, ses payes", variant: "outline" as const },
   ]
 
-  const Field = ({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
-      {note && <p className="text-xs text-muted-foreground">{note}</p>}
-    </div>
-  )
-
   return (
     <div className="space-y-6 max-w-2xl animate-fade-in">
       <div>
@@ -61,54 +51,66 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
       <Card>
         <CardHeader><CardTitle>Établissement</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Field label="Nom de l'établissement">
+          <div className="space-y-1.5">
+            <Label>Nom de l'établissement</Label>
             <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-          </Field>
-          <Field label="Symbole monétaire" note="Affiché partout dans l'application">
+          </div>
+          <div className="space-y-1.5">
+            <Label>Symbole monétaire</Label>
             <Input className="w-24" maxLength={5} value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} />
-          </Field>
+            <p className="text-xs text-muted-foreground">Affiché partout dans l'application</p>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Taux du bilan</CardTitle>
-          <CardDescription>Ces taux sont utilisés pour calculer automatiquement le bilan hebdomadaire</CardDescription>
+          <CardDescription>Appliqués sur le bénéfice net</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Taux d'imposition" note="% du bénéfice brut">
-              <div className="relative">
-                <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: e.target.value })} />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-            </Field>
-            <Field label="Taux prime employé" note="% du bénéfice net">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Taux prime (%)</Label>
               <div className="relative">
                 <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.bonusRate} onChange={e => setForm({ ...form, bonusRate: e.target.value })} />
                 <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
               </div>
-            </Field>
-            <Field label="Taux dividende" note="% du bénéfice après prime">
+              <p className="text-xs text-muted-foreground">% du bénéfice net</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Taux dividende (%)</Label>
               <div className="relative">
                 <Input type="number" min="0" max="100" step="0.01" className="pr-7" value={form.dividendRate} onChange={e => setForm({ ...form, dividendRate: e.target.value })} />
                 <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
               </div>
-            </Field>
+              <p className="text-xs text-muted-foreground">% du bénéfice net</p>
+            </div>
           </div>
+
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-xs text-muted-foreground">
+            <p className="font-semibold text-foreground text-sm">Barème d'imposition (Catégorie 3) — automatique</p>
+            <div className="grid grid-cols-2 gap-1">
+              <span>$0 → $50 000</span><span className="font-medium">Non imposable</span>
+              <span>$50 001 → $100 000</span><span className="font-medium">20% sur la tranche</span>
+              <span>$100 001 → $500 000</span><span className="font-medium">30% sur la tranche</span>
+              <span>Au-delà de $500 001</span><span className="font-medium">40% sur la tranche</span>
+            </div>
+          </div>
+
           <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
             <p><strong>Bénéfice brut</strong> = CA − salaires − charges déductibles</p>
-            <p><strong>Impôts</strong> = Bénéfice brut × {form.taxRate || "?"}%</p>
+            <p><strong>Impôts</strong> = barème progressif sur le bénéfice brut</p>
             <p><strong>Bénéfice net</strong> = Bénéfice brut − impôts</p>
-            <p><strong>Prime employé</strong> = Bénéfice net × {form.bonusRate || "?"}%</p>
-            <p><strong>Dividendes</strong> = (Bénéfice net − prime) × {form.dividendRate || "?"}%</p>
-            <p><strong>Trésorerie</strong> = (Bénéfice net − prime) × {form.dividendRate ? (100 - parseFloat(form.dividendRate)).toFixed(2) : "?"}%</p>
+            <p><strong>Prime</strong> = Bénéfice net × {form.bonusRate || "?"}%</p>
+            <p><strong>Dividendes</strong> = Bénéfice net × {form.dividendRate || "?"}%</p>
+            <p><strong>Trésorerie</strong> = Bénéfice net − prime − dividendes − charges non déductibles</p>
           </div>
         </CardContent>
       </Card>
 
       <Button onClick={save} disabled={loading}>
-        {saved ? <><CheckCircle className="h-4 w-4" /> Enregistré</> : <><Save className="h-4 w-4" />{loading ? "Enregistrement..." : "Enregistrer les paramètres"}</>}
+        {saved ? <><CheckCircle className="h-4 w-4" /> Enregistré</> : <><Save className="h-4 w-4" />{loading ? "Enregistrement..." : "Enregistrer"}</>}
       </Button>
 
       <Separator />
