@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { buildWebhookPayload } from "@/lib/webhook-payload"
+import { buildWebhookPayload, buildBody } from "@/lib/webhook-payload"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const payload = await buildWebhookPayload(restaurant.id, restaurant.name, restaurant.currency, week, year)
+    const body = buildBody({ ...payload, test: true }, restaurant.webhookUrl)
     const res = await fetch(restaurant.webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, test: true }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
     })
     if (!res.ok) {

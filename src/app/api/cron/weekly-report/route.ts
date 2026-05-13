@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { buildWebhookPayload } from "@/lib/webhook-payload"
+import { buildWebhookPayload, buildBody } from "@/lib/webhook-payload"
 
 function getISOWeek(d: Date) {
   const date = new Date(d); date.setHours(0,0,0,0)
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       const res = await fetch(restaurant.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildBody(payload, restaurant.webhookUrl)),
         signal: AbortSignal.timeout(10_000),
       })
       results.push({ restaurant: restaurant.name, status: res.ok ? `ok (${res.status})` : `error (${res.status})` })
