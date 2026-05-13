@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const updated = await prisma.order.update({ where: { id }, data: { status: parsed.data.status } })
 
   if (parsed.data.status === "CANCELLED") {
-    log({
+    await log({
       action: "ORDER_CANCELLED",
       userId: session.user.id,
       userEmail: session.user.email ?? undefined,

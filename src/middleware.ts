@@ -16,11 +16,11 @@ export default auth(async (req) => {
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth")
   const isApiAdmin = nextUrl.pathname.startsWith("/api/admin")
 
-  // CSRF: reject mutating requests from foreign origins
+  // CSRF : rejeter les mutations venant d'une origine non autorisée
   if (["POST", "PATCH", "DELETE", "PUT"].includes(method) && !isApiAuth) {
     const origin = req.headers.get("origin")
-    const host = req.headers.get("host") ?? ""
-    if (origin && !origin.includes(host)) {
+    const allowedOrigin = process.env.NEXTAUTH_URL?.replace(/\/$/, "")
+    if (origin && allowedOrigin && origin !== allowedOrigin) {
       return new NextResponse(JSON.stringify({ error: "Origine non autorisée" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -28,10 +28,10 @@ export default auth(async (req) => {
     }
   }
 
-  // Rate limit the credentials login endpoint
+  // Rate limit sur l'endpoint de connexion
   if (isApiAuth && nextUrl.pathname === "/api/auth/callback/credentials") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? req.headers.get("x-real-ip") ?? "unknown"
-    if (!checkRateLimit(`auth-login:${ip}`, 5, 60_000)) {
+    if (!await checkRateLimit(`auth-login:${ip}`, 5, 60_000)) {
       return new NextResponse(JSON.stringify({ error: "Trop de tentatives, réessayez dans une minute" }), {
         status: 429,
         headers: { "Content-Type": "application/json" },
@@ -39,7 +39,7 @@ export default auth(async (req) => {
     }
   }
 
-  // Admin API routes use their own JWT — verify it here (defense in depth)
+  // Routes API admin : vérification JWT (défense en profondeur)
   if (isApiAdmin) {
     const token = req.cookies.get("admin_token")?.value
     if (!token) {

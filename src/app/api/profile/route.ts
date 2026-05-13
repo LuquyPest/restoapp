@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest) {
     if (!valid) return NextResponse.json({ error: "Mot de passe actuel incorrect" }, { status: 400 })
     const hash = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash: hash } })
-    log({
+    await log({
       action: "PASSWORD_CHANGED",
       userId: session.user.id,
       userEmail: session.user.email ?? undefined,

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const passwordHash = await bcrypt.hash(parsed.data.password, 12)
   await prisma.user.update({ where: { id: employee.userId }, data: { passwordHash } })
 
-  log({
+  await log({
     action: "PASSWORD_RESET",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,

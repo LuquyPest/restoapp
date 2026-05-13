@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import { z } from "zod"
 
 const schema = z.object({
@@ -20,9 +21,28 @@ export async function PATCH(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
+  const previous = await prisma.restaurant.findUnique({ where: { id: session.user.restaurantId } })
+
   const restaurant = await prisma.restaurant.update({
     where: { id: session.user.restaurantId },
     data: parsed.data,
   })
+
+  const rateFields = ["taxRate", "bonusRate", "dividendRate"] as const
+  const changed = rateFields.some(f => parsed.data[f] !== undefined && parsed.data[f] !== previous?.[f])
+  if (changed) {
+    await log({
+      action: "RESTAURANT_RATES_MODIFIED",
+      userId: session.user.id,
+      userEmail: session.user.email ?? undefined,
+      restaurantId: session.user.restaurantId,
+      ip: getIp(req.headers),
+      metadata: {
+        before: { taxRate: previous?.taxRate, bonusRate: previous?.bonusRate, dividendRate: previous?.dividendRate },
+        after: { taxRate: restaurant.taxRate, bonusRate: restaurant.bonusRate, dividendRate: restaurant.dividendRate },
+      },
+    })
+  }
+
   return NextResponse.json(restaurant)
 }

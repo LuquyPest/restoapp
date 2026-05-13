@@ -7,7 +7,9 @@ const schema = z.object({
   supplierId: z.string(),
   reference: z.string().optional(),
   amount: z.number().positive(),
-  dueDate: z.coerce.date(),
+  dueDate: z.string()
+    .refine(s => !isNaN(Date.parse(s)), "Format de date invalide")
+    .transform(s => new Date(s)),
   note: z.string().optional(),
 })
 
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
   const invoices = await prisma.invoice.findMany({
-    where: { restaurantId: session.user.restaurantId },
+    where: { restaurantId: session.user.restaurantId, deletedAt: null },
     include: { supplier: true },
     orderBy: { createdAt: "desc" },
   })

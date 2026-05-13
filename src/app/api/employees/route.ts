@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     },
     include: { employee: { include: { grade: true } } },
   })
-  log({
+  await log({
     action: "EMPLOYEE_CREATED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,

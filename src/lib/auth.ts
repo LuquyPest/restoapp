@@ -16,7 +16,7 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
+  session: { strategy: "jwt", maxAge: 2 * 60 * 60 },
   pages: {
     signIn: "/login",
     error: "/login",
@@ -42,13 +42,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
 
         if (!user || !user.passwordHash || user.role === "SUPERADMIN") {
-          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip })
+          await log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip })
           return null
         }
 
         // Account lockout check
         if (user.lockedUntil && user.lockedUntil > new Date()) {
-          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
+          await log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
             metadata: { reason: "account_locked" } })
           return null
         }
@@ -66,7 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               ...(lockUntil && { lockedUntil: lockUntil }),
             },
           })
-          log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
+          await log({ action: "LOGIN_FAILED", userEmail: parsed.data.email, ip,
             metadata: { attempts: newCount } })
           return null
         }
@@ -77,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { failedLoginAttempts: 0, lockedUntil: null },
         })
 
-        log({
+        await log({
           action: "LOGIN_SUCCESS",
           userId: user.id,
           userEmail: user.email,

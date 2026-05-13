@@ -37,11 +37,10 @@ export async function POST(req: NextRequest) {
   const { name, ownerName, ownerPassword, currency } = parsed.data
   const slug = slugifyRestaurantName(name)
 
-  // Format email: prenom.nom@nomresto.com (sans espaces, sans accents)
   const ownerSlug = ownerName
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/\s+/g, ".")
     .replace(/[^a-z0-9.]/g, "")
   const email = `${ownerSlug}@${slug}.com`
@@ -51,7 +50,6 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await bcrypt.hash(ownerPassword, 12)
 
-  // Default grades
   const restaurant = await prisma.restaurant.create({
     data: {
       name,
@@ -81,7 +79,7 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  log({
+  await log({
     action: "RESTAURANT_CREATED",
     ip: getIp(req.headers),
     metadata: { restaurantId: restaurant.id, restaurantName: name, ownerEmail: email },

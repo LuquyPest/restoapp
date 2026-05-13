@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const items = await prisma.menuItem.findMany({
-    where: { restaurantId: session.user.restaurantId },
+    where: { restaurantId: session.user.restaurantId, deletedAt: null },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   })
   return NextResponse.json(items)

@@ -13,7 +13,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const restaurant = await prisma.restaurant.findUnique({ where: { id } })
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
-  // Delete in correct order to respect foreign key constraints
   await prisma.orderLine.deleteMany({ where: { order: { restaurantId: id } } })
   await prisma.order.deleteMany({ where: { restaurantId: id } })
   await prisma.payroll.deleteMany({ where: { restaurantId: id } })
@@ -29,7 +28,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await prisma.user.deleteMany({ where: { restaurantId: id } })
   await prisma.restaurant.delete({ where: { id } })
 
-  log({
+  await log({
     action: "RESTAURANT_DELETED",
     ip: getIp(req.headers),
     metadata: { restaurantId: id, restaurantName: restaurant.name },

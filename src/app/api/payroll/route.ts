@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  log({
+  await log({
     action: "PAYROLL_GENERATED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,

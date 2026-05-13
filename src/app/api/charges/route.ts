@@ -15,6 +15,8 @@ const schema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+  if (session.user.role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+
   const url = new URL(req.url)
   const weekParam = url.searchParams.get("week")
   const yearParam = url.searchParams.get("year")
@@ -29,11 +31,11 @@ export async function GET(req: NextRequest) {
     week = w; year = y
   }
 
-  let where: any = { restaurantId: session.user.restaurantId }
+  let where: any = { restaurantId: session.user.restaurantId, deletedAt: null }
   if (week && year) {
-    // Return global charges + charges for this specific week
     where = {
       restaurantId: session.user.restaurantId,
+      deletedAt: null,
       OR: [
         { weekNumber: null, year: null },
         { weekNumber: week, year: year },

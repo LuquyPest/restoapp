@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const employee = await prisma.employee.findFirst({ where: { id, restaurantId } })
   if (!employee) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   await prisma.user.delete({ where: { id: employee.userId } })
-  log({
+  await log({
     action: "EMPLOYEE_DELETED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,

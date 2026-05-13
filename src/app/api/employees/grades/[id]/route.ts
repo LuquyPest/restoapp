@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 const schema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).max(50).optional(),
   salaryPercent: z.number().min(0).max(100).optional(),
   dividendPercent: z.number().min(0).max(100).optional(),
 })
@@ -22,4 +22,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!grade) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.grade.update({ where: { id }, data: parsed.data })
   return NextResponse.json(updated)
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+  const { role, restaurantId } = session.user
+  if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+  const { id } = await params
+  const grade = await prisma.grade.findFirst({ where: { id, restaurantId } })
+  if (!grade) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
+  const inUse = await prisma.employee.count({ where: { gradeId: id, restaurantId, isActive: true } })
+  if (inUse > 0) {
+    return NextResponse.json({ error: "Des employés actifs utilisent ce grade" }, { status: 409 })
+  }
+  await prisma.grade.delete({ where: { id } })
+  return NextResponse.json({ ok: true })
 }

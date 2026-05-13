@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { log, getIp } from "@/lib/logger"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -22,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId } })
+  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId, deletedAt: null } })
   if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.menuItem.update({
     where: { id },
@@ -45,8 +46,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { role, restaurantId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
-  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId } })
+  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId, deletedAt: null } })
   if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
-  await prisma.menuItem.delete({ where: { id } })
+  await prisma.menuItem.update({ where: { id }, data: { deletedAt: new Date() } })
+  await log({
+    action: "MENU_ITEM_DELETED",
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    restaurantId,
+    ip: getIp(req.headers),
+    metadata: { itemId: id, name: item.name, price: item.price },
+  })
   return NextResponse.json({ ok: true })
 }

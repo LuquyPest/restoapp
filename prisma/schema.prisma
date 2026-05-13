@@ -130,17 +130,18 @@ model Employee {
 }
 
 model MenuItem {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   restaurantId String
   name         String
-  description  String?  @db.Text
+  description  String?   @db.Text
   price        Float
-  costPrice    Float    @default(0)
-  imageUrl     String?  @db.Text
+  costPrice    Float     @default(0)
+  imageUrl     String?   @db.Text
   category     String
-  isAvailable  Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isAvailable  Boolean   @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   restaurant  Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderLines  OrderLine[]
@@ -209,6 +210,7 @@ model Charge {
   isActive     Boolean     @default(true)
   weekNumber   Int?
   year         Int?
+  deletedAt    DateTime?
   createdAt    DateTime    @default(now())
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -243,6 +245,7 @@ model Invoice {
   paidAt       DateTime?
   status       InvoiceStatus @default(PENDING)
   note         String?       @db.Text
+  deletedAt    DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -327,6 +330,14 @@ enum InvoiceStatus {
 enum ChargeType {
   DEDUCTIBLE
   NON_DEDUCTIBLE
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int      @default(1)
+  resetAt DateTime
+
+  @@map("rate_limits")
 }
 
 model AuditLog {

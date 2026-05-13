@@ -7,8 +7,12 @@ export type AuditAction =
   | "PASSWORD_CHANGED" | "PASSWORD_RESET"
   | "EMPLOYEE_CREATED" | "EMPLOYEE_DELETED"
   | "RESTAURANT_CREATED" | "RESTAURANT_DELETED"
+  | "RESTAURANT_RATES_MODIFIED"
   | "PAYROLL_GENERATED"
   | "ORDER_CANCELLED"
+  | "MENU_ITEM_DELETED"
+  | "INVOICE_DELETED"
+  | "CHARGE_DELETED"
 
 interface LogEntry {
   action: AuditAction
@@ -19,17 +23,25 @@ interface LogEntry {
   metadata?: Record<string, unknown>
 }
 
-export function log(entry: LogEntry): void {
-  prisma.auditLog.create({
-    data: {
-      action: entry.action,
-      userId: entry.userId ?? null,
-      userEmail: entry.userEmail ?? null,
-      restaurantId: entry.restaurantId ?? null,
-      ip: entry.ip ?? null,
-      metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
-    },
-  }).catch(() => {})
+export async function log(entry: LogEntry): Promise<void> {
+  let metadata: string | null = null
+  if (entry.metadata) {
+    try { metadata = JSON.stringify(entry.metadata) } catch { /* non-serialisable */ }
+  }
+  try {
+    await prisma.auditLog.create({
+      data: {
+        action: entry.action,
+        userId: entry.userId ?? null,
+        userEmail: entry.userEmail ?? null,
+        restaurantId: entry.restaurantId ?? null,
+        ip: entry.ip ?? null,
+        metadata,
+      },
+    })
+  } catch (err) {
+    console.error("[audit] échec de l'enregistrement du log:", err)
+  }
 }
 
 export function getIp(headers: Headers): string {

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   // Fetch prices from DB — never trust client-supplied prices
   const menuItemIds = parsed.data.lines.map(l => l.menuItemId)
   const menuItems = await prisma.menuItem.findMany({
-    where: { id: { in: menuItemIds }, restaurantId, isAvailable: true },
+    where: { id: { in: menuItemIds }, restaurantId, isAvailable: true, deletedAt: null },
   })
   if (menuItems.length !== menuItemIds.length) {
     return NextResponse.json({ error: "Article introuvable ou indisponible" }, { status: 404 })

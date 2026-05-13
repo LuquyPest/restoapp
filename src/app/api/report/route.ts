@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkRateLimit } from "@/lib/rate-limit"
+import { getIp } from "@/lib/logger"
 import { z } from "zod"
 
 function getWeekBounds(week: number, year: number) {
@@ -84,6 +86,10 @@ export async function GET(req: NextRequest) {
   const { restaurantId, role } = session.user
   if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
+  if (!await checkRateLimit(`report:${session.user.id}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 })
+  }
+
   const url = new URL(req.url)
   const weekRaw = parseInt(url.searchParams.get("week") ?? "1")
   const yearRaw = parseInt(url.searchParams.get("year") ?? String(new Date().getFullYear()))
@@ -101,10 +107,10 @@ export async function GET(req: NextRequest) {
       where: { restaurantId, status: "CONFIRMED", weekNumber: week, year },
       include: { lines: { include: { menuItem: true } }, partner: true, loyaltyCard: true, employee: { include: { grade: true } } },
     }),
-    prisma.charge.findMany({ where: { restaurantId, isActive: true } }),
+    prisma.charge.findMany({ where: { restaurantId, isActive: true, deletedAt: null } }),
     prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
     prisma.supplier.findMany({ where: { restaurantId } }),
-    prisma.invoice.findMany({ where: { restaurantId }, include: { supplier: true } }),
+    prisma.invoice.findMany({ where: { restaurantId, deletedAt: null }, include: { supplier: true } }),
     prisma.loyaltyCard.findMany({ where: { restaurantId } }),
     prisma.partner.findMany({ where: { restaurantId } }),
   ])
@@ -187,7 +193,7 @@ export async function POST(req: NextRequest) {
   const [restaurant, orders, allCharges, employees] = await Promise.all([
     prisma.restaurant.findUnique({ where: { id: restaurantId } }),
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: week, year }, include: { lines: true } }),
-    prisma.charge.findMany({ where: { restaurantId, isActive: true } }),
+    prisma.charge.findMany({ where: { restaurantId, isActive: true, deletedAt: null } }),
     prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
   ])
   if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })

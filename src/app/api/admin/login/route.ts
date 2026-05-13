@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs"
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? req.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(`admin-login:${ip}`, 5, 60_000)) {
+  if (!await checkRateLimit(`admin-login:${ip}`, 5, 60_000)) {
     return NextResponse.json({ error: "Trop de tentatives, réessayez dans une minute" }, { status: 429 })
   }
 
@@ -20,17 +20,17 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { email } })
 
   if (!user || user.role !== "SUPERADMIN") {
-    log({ action: "ADMIN_LOGIN_FAILED", userEmail: email, ip })
+    await log({ action: "ADMIN_LOGIN_FAILED", userEmail: email, ip })
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 })
   }
 
   const isValid = await bcrypt.compare(password, user.passwordHash)
   if (!isValid) {
-    log({ action: "ADMIN_LOGIN_FAILED", userEmail: email, ip })
+    await log({ action: "ADMIN_LOGIN_FAILED", userEmail: email, ip })
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 })
   }
 
-  log({ action: "ADMIN_LOGIN_SUCCESS", userId: user.id, userEmail: user.email, ip })
+  await log({ action: "ADMIN_LOGIN_SUCCESS", userId: user.id, userEmail: user.email, ip })
   const token = await signAdminToken()
   const res = NextResponse.json({ ok: true })
   res.cookies.set("admin_token", token, {

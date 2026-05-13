@@ -9,8 +9,11 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1"))
   const action = url.searchParams.get("action") ?? ""
-  const search = url.searchParams.get("search") ?? ""
+  const rawSearch = url.searchParams.get("search") ?? ""
   const perPage = 50
+
+  // Sanitiser la recherche : taille max 100, caractères alphanumériques + ponctuation courante
+  const search = rawSearch.slice(0, 100).replace(/[%_\\]/g, "\\$&")
 
   const where: Record<string, unknown> = {}
   if (action) where.action = action
@@ -18,7 +21,6 @@ export async function GET(req: NextRequest) {
     where.OR = [
       { userEmail: { contains: search } },
       { ip: { contains: search } },
-      { metadata: { contains: search } },
     ]
   }
 
