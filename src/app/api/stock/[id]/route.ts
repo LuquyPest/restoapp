@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkApiPageAccess } from "@/lib/page-access"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -13,7 +14,7 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  if (session.user.role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+  if (!await checkApiPageAccess(session, "stock", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
   const body = await req.json()
@@ -30,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  if (session.user.role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+  if (!await checkApiPageAccess(session, "stock", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
   const existing = await prisma.ingredient.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
