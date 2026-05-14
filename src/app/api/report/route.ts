@@ -9,7 +9,8 @@ import { getWeekBounds, calculateTax, formatDate } from "@/lib/utils"
 
 function computeBilan(
   orders: any[], charges: any[], employees: any[],
-  bonusRate: number, dividendRate: number
+  bonusRate: number, dividendRate: number,
+  taxConfig?: { taxType?: string | null; taxBrackets?: string | null } | null
 ) {
   const revenue = orders.reduce((s: number, o: any) => s + o.total, 0)
   const costRevenue = orders.reduce((s: number, o: any) => s + (o.lines ?? []).reduce((ls: number, l: any) => ls + l.costPrice * l.quantity, 0), 0)
@@ -38,7 +39,7 @@ function computeBilan(
 
   const afterSalaries = revenue - totalSalaries
   const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit, taxConfig) : 0
   const netProfit = grossProfit - taxes
   const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
   const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest) {
 
   const bonusRate = restaurant.bonusRate ?? 10
   const dividendRate = restaurant.dividendRate ?? 72.26
-  const bilan = computeBilan(orders, charges, employees, bonusRate, dividendRate)
+  const bilan = computeBilan(orders, charges, employees, bonusRate, dividendRate, { taxType: (restaurant as any).taxType, taxBrackets: (restaurant as any).taxBrackets })
 
   const partnerMap = new Map<string, { name: string; revenue: number; discount: number }>()
   for (const order of orders.filter((o: any) => o.partner)) {

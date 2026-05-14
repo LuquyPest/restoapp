@@ -106,7 +106,7 @@ export async function buildReportData(
   const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
   const afterSalaries = revenue - totalSalaries
   const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit) : 0
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit, { taxType: (restaurant as any)?.taxType, taxBrackets: (restaurant as any)?.taxBrackets }) : 0
   const netProfit = grossProfit - taxes
   const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
   const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0

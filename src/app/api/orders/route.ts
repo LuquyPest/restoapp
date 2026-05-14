@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { getISOWeek } from "@/lib/utils"
+import { upsertNotification } from "@/lib/notifications"
 
 const createSchema = z.object({
   lines: z.array(z.object({
@@ -143,6 +144,17 @@ export async function POST(req: NextRequest) {
       })
       const lowStock = updatedIngredients.filter(i => i.quantity <= i.minQuantity)
       if (lowStock.length > 0) {
+        // DB notifications (persistent, dismissable)
+        await Promise.all(lowStock.map(i =>
+          upsertNotification({
+            restaurantId,
+            type: "LOW_STOCK",
+            entityId: i.id,
+            title: "Stock bas",
+            body: `${i.name} — stock: ${i.quantity} (seuil: ${i.minQuantity})`,
+          })
+        ))
+
         const alertUrl = restaurant.stockAlertWebhookUrl
         const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
         const payload = isDiscord

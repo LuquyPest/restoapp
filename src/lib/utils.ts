@@ -25,11 +25,51 @@ export function getWeekBounds(week: number, year: number) {
   return { start, end }
 }
 
-export function calculateTax(profit: number): number {
-  if (profit <= 50000) return 0
-  if (profit <= 100000) return (profit - 50000) * 0.20
-  if (profit <= 500000) return (50000 * 0.20) + (profit - 100000) * 0.30
-  return (50000 * 0.20) + (400000 * 0.30) + (profit - 500000) * 0.40
+export interface TaxBracket { min: number; max?: number; rate: number }
+
+export interface TaxConfig { taxType?: string | null; taxBrackets?: string | null }
+
+function applyBrackets(profit: number, brackets: TaxBracket[]): number {
+  let tax = 0
+  for (const b of brackets) {
+    if (profit <= b.min) break
+    const upper = b.max !== undefined ? Math.min(profit, b.max) : profit
+    tax += (upper - b.min) * (b.rate / 100)
+  }
+  return tax
+}
+
+export function calculateTax(profit: number, config?: TaxConfig | null): number {
+  const type = config?.taxType ?? "TYPE3"
+
+  if (type === "TYPE1") {
+    // $1–$1 000 000 : 35% · au-delà : 45%
+    return applyBrackets(profit, [
+      { min: 0, max: 1_000_000, rate: 35 },
+      { min: 1_000_000, rate: 45 },
+    ])
+  }
+  if (type === "TYPE2") {
+    // $0–$100 000 : 0% · $100 001–$1 000 000 : 30% · au-delà : 40%
+    return applyBrackets(profit, [
+      { min: 0, max: 100_000, rate: 0 },
+      { min: 100_000, max: 1_000_000, rate: 30 },
+      { min: 1_000_000, rate: 40 },
+    ])
+  }
+  if (type === "CUSTOM" && config?.taxBrackets) {
+    try {
+      const brackets: TaxBracket[] = JSON.parse(config.taxBrackets)
+      return applyBrackets(profit, brackets)
+    } catch { /* fall through to TYPE3 */ }
+  }
+  // TYPE3 (default)
+  return applyBrackets(profit, [
+    { min: 0, max: 50_000, rate: 0 },
+    { min: 50_000, max: 100_000, rate: 20 },
+    { min: 100_000, max: 500_000, rate: 30 },
+    { min: 500_000, rate: 40 },
+  ])
 }
 
 export function formatCurrency(amount: number, currency = "$") {

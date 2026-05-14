@@ -5,11 +5,15 @@ import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
+const taxBracketSchema = z.object({ min: z.number().min(0), max: z.number().min(0).optional(), rate: z.number().min(0).max(100) })
+
 const schema = z.object({
   name: z.string().min(1).max(50),
   ownerName: z.string().min(1),
   ownerPassword: z.string().min(6),
   currency: z.string().default("$"),
+  taxType: z.enum(["TYPE1", "TYPE2", "TYPE3", "CUSTOM"]).default("TYPE3"),
+  taxBrackets: z.array(taxBracketSchema).optional(),
 })
 
 export async function GET() {
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const { name, ownerName, ownerPassword, currency } = parsed.data
+  const { name, ownerName, ownerPassword, currency, taxType, taxBrackets } = parsed.data
   const slug = slugifyRestaurantName(name)
 
   const ownerSlug = ownerName
@@ -57,6 +61,8 @@ export async function POST(req: NextRequest) {
       taxRate: 11.9,
       bonusRate: 10,
       dividendRate: 72.26,
+      taxType: taxType ?? "TYPE3",
+      taxBrackets: taxBrackets && taxBrackets.length > 0 ? JSON.stringify(taxBrackets) : null,
       grades: {
         create: [
           { name: "Patron(ne)", salaryPercent: 70 },

@@ -36,9 +36,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   return NextResponse.json({ ok: true })
 }
 
+const taxBracketSchema = z.object({ min: z.number().min(0), max: z.number().min(0).optional(), rate: z.number().min(0).max(100) })
+
 const patchSchema = z.object({
   name: z.string().min(1).max(50).optional(),
   currency: z.string().min(1).max(5).optional(),
+  taxType: z.enum(["TYPE1", "TYPE2", "TYPE3", "CUSTOM"]).optional(),
+  taxBrackets: z.array(taxBracketSchema).optional().nullable(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +59,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data: {
       ...(parsed.data.name && { name: parsed.data.name }),
       ...(parsed.data.currency && { currency: parsed.data.currency }),
+      ...(parsed.data.taxType && { taxType: parsed.data.taxType }),
+      ...(parsed.data.taxBrackets !== undefined && {
+        taxBrackets: parsed.data.taxBrackets && parsed.data.taxBrackets.length > 0 ? JSON.stringify(parsed.data.taxBrackets) : null,
+      }),
     },
   })
   return NextResponse.json(restaurant)

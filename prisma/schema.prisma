@@ -19,6 +19,8 @@ model Restaurant {
   webhookDay           Int            @default(1)
   webhookHour          Int            @default(1)
   stockAlertWebhookUrl String?        @db.Text
+  taxType              TaxType        @default(TYPE3)
+  taxBrackets          String?        @db.Text
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   accessRoles          AccessRole[]
@@ -29,6 +31,7 @@ model Restaurant {
   invoices             Invoice[]
   loyaltyCards         LoyaltyCard[]
   menuItems            MenuItem[]
+  notifications        Notification[]
   orders               Order[]
   partners             Partner[]
   payrolls             Payroll[]
@@ -389,6 +392,22 @@ model LoyaltyCard {
   @@map("loyalty_cards")
 }
 
+model Notification {
+  id           String     @id @default(cuid())
+  restaurantId String
+  type         String
+  title        String
+  body         String
+  entityId     String?
+  isRead       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, type, entityId])
+  @@index([restaurantId, isRead])
+  @@map("notifications")
+}
+
 model Ingredient {
   id           String       @id @default(cuid())
   restaurantId String
@@ -446,4 +465,11 @@ enum ChargeType {
 enum AdjustmentType {
   PERCENT
   FIXED
+}
+
+enum TaxType {
+  TYPE1
+  TYPE2
+  TYPE3
+  CUSTOM
 }

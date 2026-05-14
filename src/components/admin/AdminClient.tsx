@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, Eye, EyeOff, ClipboardList } from "lucide-react"
+import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, Eye, EyeOff, ClipboardList, Pencil, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,27 +10,91 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDate } from "@/lib/utils"
 
+interface TaxBracket { min: number; max?: number; rate: number }
 interface RestaurantUser { email: string; name: string | null }
 interface Restaurant {
-  id: string; name: string; currency: string; createdAt: Date
+  id: string; name: string; currency: string; taxType: string; taxBrackets: string | null; createdAt: Date
   _count: { employees: number; orders: number }
   users: RestaurantUser[]
 }
 
 function slugify(s: string) {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").slice(0, 20)
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "").slice(0, 20)
+}
+function slugifyOwner(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "")
 }
 
-function slugifyOwner(s: string) {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "")
+const TAX_TYPES = [
+  { value: "TYPE1", label: "Type 1", desc: "$1–$1 000 000 : 35% · Au-delà : 45%" },
+  { value: "TYPE2", label: "Type 2", desc: "$0–$100 000 : 0% · $100 001–$1 000 000 : 30% · Au-delà : 40%" },
+  { value: "TYPE3", label: "Type 3 (défaut)", desc: "$0–$50 000 : 0% · $50 001–$100 000 : 20% · $100 001–$500 000 : 30% · Au-delà : 40%" },
+  { value: "CUSTOM", label: "Personnalisé", desc: "Tranches d'imposition personnalisées" },
+]
+
+const EMPTY_BRACKET: TaxBracket = { min: 0, rate: 0 }
+
+function TaxTypeSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Type d'imposition</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {TAX_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">{TAX_TYPES.find(t => t.value === value)?.desc}</p>
+    </div>
+  )
+}
+
+function BracketsEditor({ brackets, onChange }: { brackets: TaxBracket[]; onChange: (b: TaxBracket[]) => void }) {
+  function add() { onChange([...brackets, { min: brackets.at(-1)?.max ?? 0, rate: 0 }]) }
+  function remove(i: number) { onChange(brackets.filter((_, idx) => idx !== i)) }
+  function update(i: number, field: keyof TaxBracket, val: string) {
+    const n = parseFloat(val)
+    onChange(brackets.map((b, idx) => idx === i ? { ...b, [field]: isNaN(n) ? undefined : n } : b))
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tranches personnalisées</p>
+      {brackets.map((b, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="flex-1 grid grid-cols-3 gap-2">
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-muted-foreground">Min ($)</p>
+              <Input type="number" min="0" className="h-8 text-xs" value={b.min} onChange={e => update(i, "min", e.target.value)} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-muted-foreground">Max ($) — vide = illimité</p>
+              <Input type="number" min="0" className="h-8 text-xs" value={b.max ?? ""} onChange={e => update(i, "max", e.target.value)} placeholder="∞" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-muted-foreground">Taux (%)</p>
+              <Input type="number" min="0" max="100" step="0.1" className="h-8 text-xs" value={b.rate} onChange={e => update(i, "rate", e.target.value)} />
+            </div>
+          </div>
+          <button onClick={() => remove(i)} className="mt-4 text-muted-foreground hover:text-destructive transition-colors shrink-0">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={add} className="w-full h-8 text-xs">
+        <Plus className="h-3 w-3" /> Ajouter une tranche
+      </Button>
+    </div>
+  )
 }
 
 export default function AdminClient({ restaurants: initial }: { restaurants: Restaurant[] }) {
   const router = useRouter()
   const [restaurants, setRestaurants] = useState(initial)
   const [modal, setModal] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -38,30 +102,57 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
   const [copied, setCopied] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
 
-  const [form, setForm] = useState({ name: "", ownerName: "", ownerPassword: "", currency: "$" })
+  const [form, setForm] = useState({ name: "", ownerName: "", ownerPassword: "", currency: "$", taxType: "TYPE3" })
+  const [createBrackets, setCreateBrackets] = useState<TaxBracket[]>([])
+
+  const [editForm, setEditForm] = useState({ taxType: "TYPE3", taxBrackets: [] as TaxBracket[] })
 
   const previewEmail = form.ownerName && form.name
     ? `${slugifyOwner(form.ownerName)}@${slugify(form.name)}.com`
     : ""
+
+  function openEdit(r: Restaurant) {
+    setEditId(r.id)
+    let brackets: TaxBracket[] = []
+    if (r.taxBrackets) { try { brackets = JSON.parse(r.taxBrackets) } catch {} }
+    setEditForm({ taxType: r.taxType ?? "TYPE3", taxBrackets: brackets })
+  }
 
   async function create() {
     setLoading(true); setError("")
     try {
       const res = await fetch("/api/admin/restaurants", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          taxBrackets: form.taxType === "CUSTOM" ? createBrackets : undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erreur")
       setCreatedInfo({ email: data.email, password: form.ownerPassword, restaurant: data.restaurant.name })
-      setForm({ name: "", ownerName: "", ownerPassword: "", currency: "$" })
+      setForm({ name: "", ownerName: "", ownerPassword: "", currency: "$", taxType: "TYPE3" })
+      setCreateBrackets([])
       setModal(false)
-      router.refresh()
-      // Refresh list
       const listRes = await fetch("/api/admin/restaurants")
       if (listRes.ok) setRestaurants(await listRes.json())
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
+  }
+
+  async function saveEdit() {
+    if (!editId) return
+    setLoading(true)
+    await fetch(`/api/admin/restaurants/${editId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taxType: editForm.taxType,
+        taxBrackets: editForm.taxType === "CUSTOM" ? editForm.taxBrackets : null,
+      }),
+    })
+    setEditId(null); setLoading(false)
+    const listRes = await fetch("/api/admin/restaurants")
+    if (listRes.ok) setRestaurants(await listRes.json())
   }
 
   async function deleteRestaurant() {
@@ -84,9 +175,10 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
+  function taxLabel(t: string) { return TAX_TYPES.find(x => x.value === t)?.label ?? t }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-7 w-7 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center">
@@ -108,7 +200,6 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       </header>
 
       <main className="p-8 max-w-5xl mx-auto space-y-6">
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card><CardContent className="p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Restaurants</p>
@@ -124,7 +215,6 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
           </CardContent></Card>
         </div>
 
-        {/* Restaurants list */}
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle>Restaurants ({restaurants.length})</CardTitle>
@@ -137,7 +227,8 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
               <TableHeader>
                 <TableRow>
                   <TableHead>Restaurant</TableHead>
-                  <TableHead>Patron (email de connexion)</TableHead>
+                  <TableHead>Patron</TableHead>
+                  <TableHead>Imposition</TableHead>
                   <TableHead>Employés</TableHead>
                   <TableHead>Commandes</TableHead>
                   <TableHead>Créé le</TableHead>
@@ -146,7 +237,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
               </TableHeader>
               <TableBody>
                 {restaurants.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Aucun restaurant</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucun restaurant</TableCell></TableRow>
                 ) : restaurants.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>
@@ -169,33 +260,28 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
                       ) : <span className="text-muted-foreground text-xs">—</span>}
                     </TableCell>
                     <TableCell>
+                      <Badge variant="outline" className="text-[10px] font-mono">{taxLabel(r.taxType ?? "TYPE3")}</Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1.5 text-sm">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        {r._count.employees}
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />{r._count.employees}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm">
-                        <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground" />
-                        {r._count.orders}
+                        <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground" />{r._count.orders}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(r.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                          onClick={() => router.push(`/admin/logs/${r.id}`)}
-                          title="Voir les logs"
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(r)} title="Modifier l'imposition">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => router.push(`/admin/logs/${r.id}`)} title="Voir les logs">
                           <ClipboardList className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleteId(r.id)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteId(r.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -210,7 +296,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
 
       {/* Create modal */}
       <Dialog open={modal} onOpenChange={v => !v && setModal(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Créer un restaurant</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -224,13 +310,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
             <div className="space-y-1.5">
               <Label>Mot de passe du patron</Label>
               <div className="relative">
-                <Input
-                  type={showPwd ? "text" : "password"}
-                  className="pr-10"
-                  placeholder="Min. 6 caractères"
-                  value={form.ownerPassword}
-                  onChange={e => setForm({ ...form, ownerPassword: e.target.value })}
-                />
+                <Input type={showPwd ? "text" : "password"} className="pr-10" placeholder="Min. 6 caractères" value={form.ownerPassword} onChange={e => setForm({ ...form, ownerPassword: e.target.value })} />
                 <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -240,22 +320,36 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
               <Label>Devise</Label>
               <Input className="w-24" maxLength={5} placeholder="$" value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} />
             </div>
+            <TaxTypeSelector value={form.taxType} onChange={v => { setForm({ ...form, taxType: v }); if (v !== "CUSTOM") setCreateBrackets([]) }} />
+            {form.taxType === "CUSTOM" && <BracketsEditor brackets={createBrackets} onChange={setCreateBrackets} />}
 
             {previewEmail && (
               <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground">Email de connexion généré</p>
                 <p className="text-sm font-mono font-semibold text-primary">{previewEmail}</p>
-                <p className="text-xs text-muted-foreground">Format : prenom.nom@nomresto.com</p>
               </div>
             )}
-
             {error && <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</div>}
-
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
               <Button className="flex-1" onClick={create} disabled={loading || !form.name || !form.ownerName || form.ownerPassword.length < 6}>
                 {loading ? "Création..." : "Créer"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit tax type modal */}
+      <Dialog open={!!editId} onOpenChange={v => !v && setEditId(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Modifier l'imposition</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <TaxTypeSelector value={editForm.taxType} onChange={v => { setEditForm({ ...editForm, taxType: v }); if (v !== "CUSTOM") setEditForm(prev => ({ ...prev, taxType: v, taxBrackets: [] })) }} />
+            {editForm.taxType === "CUSTOM" && <BracketsEditor brackets={editForm.taxBrackets} onChange={b => setEditForm({ ...editForm, taxBrackets: b })} />}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setEditId(null)}>Annuler</Button>
+              <Button className="flex-1" onClick={saveEdit} disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer"}</Button>
             </div>
           </div>
         </DialogContent>
@@ -298,7 +392,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
           <DialogHeader><DialogTitle>Supprimer ce restaurant ?</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
-              ⚠️ Cette action est irréversible. Toutes les données (employés, commandes, ventes) seront définitivement supprimées.
+              ⚠️ Cette action est irréversible. Toutes les données seront définitivement supprimées.
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setDeleteId(null)}>Annuler</Button>
