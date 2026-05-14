@@ -7,6 +7,7 @@ export const CONFIGURABLE_PAGES = [
   { key: "sales/products", label: "Ventes produits",  defaultRoles: ["OWNER","MANAGER"] },
   { key: "report",         label: "Bilan",            defaultRoles: ["OWNER","MANAGER"] },
   { key: "menu",           label: "Carte (menu)",     defaultRoles: ["OWNER","MANAGER"] },
+  { key: "stock",          label: "Stock",            defaultRoles: ["OWNER"] },
   { key: "partners",       label: "Partenaires",      defaultRoles: ["OWNER","MANAGER"] },
   { key: "suppliers",      label: "Fournisseurs",     defaultRoles: ["OWNER","MANAGER"] },
   { key: "invoices",       label: "Factures",         defaultRoles: ["OWNER","MANAGER"] },

@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma"
 import { log, getIp } from "@/lib/logger"
 import { z } from "zod"
 
+const recipeLineSchema = z.object({
+  ingredientId: z.string(),
+  quantity: z.number().positive(),
+})
+
 const patchSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   price: z.number().positive().optional(),
@@ -12,6 +17,7 @@ const patchSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   imageUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
   isAvailable: z.boolean().optional(),
+  recipeLines: z.array(recipeLineSchema).optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -25,17 +31,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
   const item = await prisma.menuItem.findFirst({ where: { id, restaurantId, deletedAt: null } })
   if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
+
+  const { recipeLines, ...fields } = parsed.data
+
+  if (recipeLines !== undefined) {
+    await prisma.recipeLine.deleteMany({ where: { menuItemId: id } })
+    if (recipeLines.length > 0) {
+      await prisma.recipeLine.createMany({
+        data: recipeLines.map(l => ({ menuItemId: id, ingredientId: l.ingredientId, quantity: l.quantity })),
+      })
+    }
+  }
+
   const updated = await prisma.menuItem.update({
     where: { id },
     data: {
-      ...(parsed.data.name !== undefined && { name: parsed.data.name }),
-      ...(parsed.data.price !== undefined && { price: parsed.data.price }),
-      ...(parsed.data.costPrice !== undefined && { costPrice: parsed.data.costPrice }),
-      ...(parsed.data.category !== undefined && { category: parsed.data.category }),
-      ...(parsed.data.description !== undefined && { description: parsed.data.description }),
-      ...(parsed.data.imageUrl !== undefined && { imageUrl: parsed.data.imageUrl || null }),
-      ...(parsed.data.isAvailable !== undefined && { isAvailable: parsed.data.isAvailable }),
+      ...(fields.name !== undefined && { name: fields.name }),
+      ...(fields.price !== undefined && { price: fields.price }),
+      ...(fields.costPrice !== undefined && { costPrice: fields.costPrice }),
+      ...(fields.category !== undefined && { category: fields.category }),
+      ...(fields.description !== undefined && { description: fields.description }),
+      ...(fields.imageUrl !== undefined && { imageUrl: fields.imageUrl || null }),
+      ...(fields.isAvailable !== undefined && { isAvailable: fields.isAvailable }),
     },
+    include: { recipeLines: { include: { ingredient: true } } },
   })
   return NextResponse.json(updated)
 }

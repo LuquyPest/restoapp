@@ -4,13 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { buildReportData, sendWebhook } from "@/lib/webhook-payload"
 import { generateReportHtml } from "@/lib/report-html"
-
-function getISOWeek(d: Date) {
-  const date = new Date(d); date.setHours(0,0,0,0)
-  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-  const week1 = new Date(date.getFullYear(), 0, 4)
-  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
+import { getISOWeek } from "@/lib/utils"
 
 export async function POST(req: NextRequest) {
   const session = await auth()

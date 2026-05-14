@@ -6,7 +6,7 @@ import { useTheme } from "next-themes"
 import {
   LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, Truck,
   FileText, Settings, LogOut, ChevronRight,
-  TrendingUp, Receipt, Handshake, BarChart3, Sun, Moon, CreditCard, KeyRound,
+  TrendingUp, Receipt, Handshake, BarChart3, Sun, Moon, CreditCard, KeyRound, Package,
 } from "lucide-react"
 import { AppLogo } from "@/components/ui/AppLogo"
 import { signOut } from "next-auth/react"
@@ -45,6 +45,7 @@ const navGroups = [
     label: "Gestion",
     items: [
       { key: "menu",      label: "Carte",        href: "/menu",      icon: UtensilsCrossed, roles: ["OWNER","MANAGER"] },
+      { key: "stock",     label: "Stock",        href: "/stock",     icon: Package,         roles: ["OWNER"] },
       { key: "partners",  label: "Partenaires",  href: "/partners",  icon: Handshake,       roles: ["OWNER","MANAGER"] },
       { key: "suppliers", label: "Fournisseurs", href: "/suppliers", icon: Truck,           roles: ["OWNER","MANAGER"] },
       { key: "invoices",  label: "Factures",     href: "/invoices",  icon: FileText,        roles: ["OWNER","MANAGER"] },

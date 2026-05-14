@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo } from "react"
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, ImageIcon } from "lucide-react"
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, ImageIcon, X, ChefHat } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -11,22 +11,35 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-interface MenuItem { id: string; name: string; description: string | null; price: number; costPrice: number; category: string; isAvailable: boolean; imageUrl: string | null }
+interface RecipeLine { ingredientId: string; ingredientName: string; quantity: number }
+interface MenuItem {
+  id: string; name: string; description: string | null; price: number; costPrice: number
+  category: string; isAvailable: boolean; imageUrl: string | null
+  recipeLines: { ingredientId: string; quantity: number; ingredient: { id: string; name: string } }[]
+}
+interface Ingredient { id: string; name: string; quantity: number; minQuantity: number }
+
 const EMPTY = { name: "", description: "", price: "", costPrice: "", category: "", imageUrl: "", isAvailable: true }
-interface Props { items: MenuItem[]; role: string; currency: string }
 
-export default function MenuClient({ items, role, currency }: Props) {
+interface Props { items: MenuItem[]; role: string; currency: string; ingredients: Ingredient[] }
+
+export default function MenuClient({ items, role, currency, ingredients }: Props) {
   const router = useRouter()
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
   const [selected, setSelected] = useState<MenuItem | null>(null)
   const [form, setForm] = useState(EMPTY)
+  const [recipeLines, setRecipeLines] = useState<RecipeLine[]>([])
+  const [newIngredientId, setNewIngredientId] = useState("")
+  const [newIngredientQty, setNewIngredientQty] = useState("1")
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [imgError, setImgError] = useState(false)
 
   const fmt = (n: number) => formatCurrency(n, currency)
   const canEdit = role !== "EMPLOYEE"
+  const canRecipe = role === "OWNER"
   const categories = useMemo(() => [...new Set(items.map(i => i.category))], [items])
   const filtered = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.category.toLowerCase().includes(search.toLowerCase()))
   const grouped = categories.reduce<Record<string, MenuItem[]>>((acc, cat) => {
@@ -35,16 +48,44 @@ export default function MenuClient({ items, role, currency }: Props) {
     return acc
   }, {})
 
-  function openCreate() { setForm(EMPTY); setImgError(false); setModal("create") }
+  function openCreate() {
+    setForm(EMPTY); setImgError(false); setRecipeLines([]); setNewIngredientId(""); setNewIngredientQty("1"); setModal("create")
+  }
   function openEdit(item: MenuItem) {
     setSelected(item); setImgError(false)
     setForm({ name: item.name, description: item.description ?? "", price: String(item.price), costPrice: String(item.costPrice), category: item.category, imageUrl: item.imageUrl ?? "", isAvailable: item.isAvailable })
+    setRecipeLines(item.recipeLines.map(l => ({ ingredientId: l.ingredientId, ingredientName: l.ingredient.name, quantity: l.quantity })))
+    setNewIngredientId(""); setNewIngredientQty("1")
     setModal("edit")
+  }
+
+  function addIngredient() {
+    if (!newIngredientId) return
+    const ing = ingredients.find(i => i.id === newIngredientId)
+    if (!ing) return
+    if (recipeLines.some(l => l.ingredientId === newIngredientId)) return
+    const qty = parseFloat(newIngredientQty) || 1
+    setRecipeLines(prev => [...prev, { ingredientId: newIngredientId, ingredientName: ing.name, quantity: qty }])
+    setNewIngredientId(""); setNewIngredientQty("1")
+  }
+
+  function removeIngredient(ingredientId: string) {
+    setRecipeLines(prev => prev.filter(l => l.ingredientId !== ingredientId))
+  }
+
+  function updateIngredientQty(ingredientId: string, qty: string) {
+    setRecipeLines(prev => prev.map(l => l.ingredientId === ingredientId ? { ...l, quantity: parseFloat(qty) || 0 } : l))
   }
 
   async function save() {
     setLoading(true)
-    const payload = { ...form, price: parseFloat(form.price as string), costPrice: parseFloat(form.costPrice as string) || 0 }
+    const payload: any = {
+      ...form,
+      price: parseFloat(form.price as string),
+      costPrice: parseFloat(form.costPrice as string) || 0,
+    }
+    if (canRecipe) payload.recipeLines = recipeLines.map(l => ({ ingredientId: l.ingredientId, quantity: l.quantity }))
+
     if (modal === "create") await fetch("/api/menu", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
     else if (selected) await fetch(`/api/menu/${selected.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
     setLoading(false); setModal(null); router.refresh()
@@ -61,6 +102,7 @@ export default function MenuClient({ items, role, currency }: Props) {
   }
 
   const previewUrl = (form.imageUrl as string)?.startsWith("http") ? form.imageUrl : null
+  const availableIngredients = ingredients.filter(i => !recipeLines.some(l => l.ingredientId === i.id))
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -96,6 +138,13 @@ export default function MenuClient({ items, role, currency }: Props) {
                     </div>
                   )}
                   {!item.isAvailable && <div className="absolute inset-0 bg-background/60 flex items-center justify-center"><Badge variant="destructive" className="text-[10px]">Indisponible</Badge></div>}
+                  {item.recipeLines.length > 0 && (
+                    <div className="absolute bottom-1.5 right-1.5">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 gap-1">
+                        <ChefHat className="h-2.5 w-2.5" />{item.recipeLines.length}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 <CardContent className="p-3">
                   <p className="text-sm font-semibold truncate">{item.name}</p>
@@ -127,7 +176,7 @@ export default function MenuClient({ items, role, currency }: Props) {
       )}
 
       <Dialog open={modal !== null} onOpenChange={v => !v && setModal(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{modal === "create" ? "Nouvel article" : "Modifier l'article"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5"><Label>Nom</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
@@ -150,6 +199,60 @@ export default function MenuClient({ items, role, currency }: Props) {
               <Switch checked={form.isAvailable} onCheckedChange={v => setForm({ ...form, isAvailable: v })} />
               <Label>Disponible à la vente</Label>
             </div>
+
+            {canRecipe && ingredients.length > 0 && (
+              <div className="space-y-2 rounded-lg border p-3 bg-muted/20">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <ChefHat className="h-3 w-3" />Recette (ingrédients)
+                </p>
+
+                {recipeLines.length > 0 && (
+                  <div className="space-y-1.5">
+                    {recipeLines.map(line => (
+                      <div key={line.ingredientId} className="flex items-center gap-2">
+                        <span className="flex-1 text-sm truncate">{line.ingredientName}</span>
+                        <Input
+                          type="number" min="0.01" step="0.01"
+                          value={line.quantity}
+                          onChange={e => updateIngredientQty(line.ingredientId, e.target.value)}
+                          className="h-7 w-20 text-xs text-right"
+                        />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive" onClick={() => removeIngredient(line.ingredientId)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {availableIngredients.length > 0 && (
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Select value={newIngredientId} onValueChange={setNewIngredientId}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Ajouter un ingrédient…" /></SelectTrigger>
+                        <SelectContent>
+                          {availableIngredients.map(i => (
+                            <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      type="number" min="0.01" step="0.01" placeholder="Qté"
+                      value={newIngredientQty}
+                      onChange={e => setNewIngredientQty(e.target.value)}
+                      className="h-8 w-20 text-xs"
+                    />
+                    <Button size="sm" variant="outline" className="h-8" onClick={addIngredient} disabled={!newIngredientId}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+                {recipeLines.length === 0 && <p className="text-xs text-muted-foreground">Aucun ingrédient — pas de déduction de stock à la vente</p>}
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setModal(null)}>Annuler</Button>
               <Button className="flex-1" onClick={save} disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer"}</Button>

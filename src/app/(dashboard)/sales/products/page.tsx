@@ -3,13 +3,7 @@ import { redirect } from "next/navigation"
 import { requirePageAccess } from "@/lib/page-access"
 import { prisma } from "@/lib/prisma"
 import ProductSalesClient from "@/components/sales/ProductSalesClient"
-
-function getISOWeek(d: Date) {
-  const date = new Date(d); date.setHours(0,0,0,0)
-  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-  const week1 = new Date(date.getFullYear(), 0, 4)
-  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
+import { getISOWeek } from "@/lib/utils"
 
 export default async function ProductSalesPage({ searchParams }: { searchParams: Promise<{ week?: string; year?: string }> }) {
   const session = await auth()

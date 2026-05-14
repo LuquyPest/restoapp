@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Globe, Calendar } from "lucide-react"
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Globe, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -11,14 +11,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-
-function getISOWeek(d: Date) {
-  const date = new Date(d); date.setHours(0,0,0,0)
-  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-  const week1 = new Date(date.getFullYear(), 0, 4)
-  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
+import { getISOWeek } from "@/lib/utils"
 
 interface Charge { id: string; name: string; amount: number; type: string; isActive: boolean; weekNumber: number | null; year: number | null }
 const EMPTY = { name: "", amount: "", type: "DEDUCTIBLE", scope: "global" }

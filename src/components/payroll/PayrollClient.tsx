@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, getISOWeek } from "@/lib/utils"
 import { Calculator, CheckCircle, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,12 +11,6 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-function getISOWeek(d: Date) {
-  const date = new Date(d); date.setHours(0,0,0,0)
-  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-  const week1 = new Date(date.getFullYear(), 0, 4)
-  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
 
 interface Grade { name: string; salaryPercent: number }
 interface Employee { id: string; firstName: string; lastName: string; grade: Grade }

@@ -5,30 +5,7 @@ import { checkRateLimit } from "@/lib/rate-limit"
 import { getIp } from "@/lib/logger"
 import { z } from "zod"
 import { checkApiPageAccess } from "@/lib/page-access"
-
-function getWeekBounds(week: number, year: number) {
-  const jan4 = new Date(year, 0, 4)
-  const startOfWeek1 = new Date(jan4)
-  startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-  const start = new Date(startOfWeek1)
-  start.setDate(startOfWeek1.getDate() + (week - 1) * 7)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  end.setHours(23, 59, 59, 999)
-  return { start, end }
-}
-
-function formatDate(d: Date) {
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
-}
-
-function calculateTax(profit: number): number {
-  if (profit <= 50000) return 0
-  if (profit <= 100000) return (profit - 50000) * 0.20
-  if (profit <= 500000) return (50000 * 0.20) + (profit - 100000) * 0.30
-  return (50000 * 0.20) + (400000 * 0.30) + (profit - 500000) * 0.40
-}
+import { getWeekBounds, calculateTax, formatDate } from "@/lib/utils"
 
 function computeBilan(
   orders: any[], charges: any[], employees: any[],

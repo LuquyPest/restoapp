@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Save, CheckCircle, ImageIcon, ShieldCheck, Plus, Trash2, Users, Webhook, Send } from "lucide-react"
+import { Save, CheckCircle, ImageIcon, ShieldCheck, Plus, Trash2, Users, Webhook, Send, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
 
-interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null; webhookDay?: number; webhookHour?: number }
+interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null; webhookDay?: number; webhookHour?: number; stockAlertWebhookUrl?: string | null }
 interface RestaurantUser { id: string; name: string | null; email: string; role: string }
 interface AccessRoleData {
   id: string; name: string
@@ -31,6 +31,7 @@ export default function SettingsClient({
   webhookUrl: initialWebhookUrl = "",
   webhookDay: initialWebhookDay = 1,
   webhookHour: initialWebhookHour = 1,
+  stockAlertWebhookUrl: initialStockAlertWebhookUrl = "",
 }: {
   restaurant: Restaurant
   accessRoles?: AccessRoleData[]
@@ -38,6 +39,7 @@ export default function SettingsClient({
   webhookUrl?: string
   webhookDay?: number
   webhookHour?: number
+  stockAlertWebhookUrl?: string
 }) {
   const router = useRouter()
   const [form, setForm] = useState({
@@ -54,6 +56,7 @@ export default function SettingsClient({
   const [webhookHour, setWebhookHour] = useState(initialWebhookHour)
   const [webhookTesting, setWebhookTesting] = useState(false)
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [stockAlertWebhookUrl, setStockAlertWebhookUrl] = useState(initialStockAlertWebhookUrl)
 
   // Access roles state
   const [roles, setRoles] = useState<AccessRoleData[]>(initialRoles)
@@ -147,6 +150,7 @@ export default function SettingsClient({
         webhookUrl: webhookUrl.trim() || null,
         webhookDay,
         webhookHour,
+        stockAlertWebhookUrl: stockAlertWebhookUrl.trim() || null,
       }),
     })
     setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 3000); router.refresh()
@@ -304,6 +308,24 @@ export default function SettingsClient({
           <Button variant="outline" size="sm" onClick={testWebhook} disabled={webhookTesting || !webhookUrl.trim()}>
             <Send className="h-3.5 w-3.5" />{webhookTesting ? "Envoi en cours..." : "Tester le webhook"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Webhook alerte stock</CardTitle>
+          <CardDescription>Envoi automatique lorsqu'un ingrédient atteint ou dépasse son seuil minimum lors d'une vente.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>URL du webhook</Label>
+            <Input
+              placeholder="https://discord.com/api/webhooks/..."
+              value={stockAlertWebhookUrl}
+              onChange={e => setStockAlertWebhookUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Laisse vide pour désactiver · Compatible Discord et tout service HTTP</p>
+          </div>
         </CardContent>
       </Card>
 

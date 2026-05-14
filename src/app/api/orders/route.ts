@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-
-function getISOWeek(d: Date) {
-  const date = new Date(d); date.setHours(0,0,0,0)
-  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-  const week1 = new Date(date.getFullYear(), 0, 4)
-  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-}
+import { getISOWeek } from "@/lib/utils"
 
 const createSchema = z.object({
   lines: z.array(z.object({
@@ -116,6 +110,62 @@ export async function POST(req: NextRequest) {
       },
     },
   })
+
+  // Deduct stock for each order line based on recipe
+  const recipeLines = await prisma.recipeLine.findMany({
+    where: { menuItemId: { in: menuItemIds } },
+    include: { ingredient: true },
+  })
+
+  if (recipeLines.length > 0) {
+    const deductions = new Map<string, number>()
+    for (const orderLine of parsed.data.lines) {
+      const lines = recipeLines.filter(r => r.menuItemId === orderLine.menuItemId)
+      for (const r of lines) {
+        deductions.set(r.ingredientId, (deductions.get(r.ingredientId) ?? 0) + r.quantity * orderLine.quantity)
+      }
+    }
+
+    await Promise.all(
+      Array.from(deductions.entries()).map(([ingredientId, qty]) =>
+        prisma.ingredient.update({
+          where: { id: ingredientId },
+          data: { quantity: { decrement: qty } },
+        })
+      )
+    )
+
+    // Check low stock and send alert
+    const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { stockAlertWebhookUrl: true, name: true, currency: true } })
+    if (restaurant?.stockAlertWebhookUrl) {
+      const updatedIngredients = await prisma.ingredient.findMany({
+        where: { id: { in: Array.from(deductions.keys()) } },
+      })
+      const lowStock = updatedIngredients.filter(i => i.quantity <= i.minQuantity)
+      if (lowStock.length > 0) {
+        const alertUrl = restaurant.stockAlertWebhookUrl
+        const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
+        const payload = isDiscord
+          ? {
+              embeds: [{
+                title: `⚠️ Stock bas — ${restaurant.name}`,
+                color: 0xf59e0b,
+                fields: lowStock.map(i => ({ name: i.name, value: `Stock: **${i.quantity}** (seuil: ${i.minQuantity})`, inline: true })),
+                footer: { text: "RestoCompta · Alerte stock" },
+                timestamp: new Date().toISOString(),
+              }],
+            }
+          : { type: "LOW_STOCK", restaurant: restaurant.name, ingredients: lowStock.map(i => ({ name: i.name, quantity: i.quantity, minQuantity: i.minQuantity })) }
+
+        fetch(alertUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10_000),
+        }).catch(() => {})
+      }
+    }
+  }
 
   return NextResponse.json(order, { status: 201 })
 }

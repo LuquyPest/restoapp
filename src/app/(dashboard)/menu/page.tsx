@@ -10,10 +10,16 @@ export default async function MenuPage() {
   const { restaurantId, role } = session.user
   const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
 
-  const items = await prisma.menuItem.findMany({
-    where: { restaurantId },
-    orderBy: [{ category: "asc" }, { name: "asc" }],
-  })
+  const [items, ingredients] = await Promise.all([
+    prisma.menuItem.findMany({
+      where: { restaurantId, deletedAt: null },
+      include: { recipeLines: { include: { ingredient: true } } },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+    session.user.role === "OWNER"
+      ? prisma.ingredient.findMany({ where: { restaurantId }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+  ])
 
-  return <MenuClient items={items} role={role} currency={restaurant?.currency ?? "$"} />
+  return <MenuClient items={items} role={role} currency={restaurant?.currency ?? "$"} ingredients={ingredients} />
 }

@@ -8,31 +8,33 @@ datasource db {
 }
 
 model Restaurant {
-  id            String         @id @default(cuid())
-  name          String
-  logo          String?
-  currency      String         @default("$")
-  taxRate       Float          @default(11.9)
-  bonusRate     Float          @default(10)
-  dividendRate  Float          @default(72.26)
-  webhookUrl    String?        @db.Text
-  webhookDay    Int            @default(1)
-  webhookHour   Int            @default(1)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  accessRoles   AccessRole[]
-  charges       Charge[]
-  employees     Employee[]
-  grades        Grade[]
-  invoices      Invoice[]
-  loyaltyCards  LoyaltyCard[]
-  menuItems     MenuItem[]
-  orders        Order[]
-  partners      Partner[]
-  payrolls      Payroll[]
-  suppliers     Supplier[]
-  users         User[]
-  weeklyReports WeeklyReport[]
+  id                   String         @id @default(cuid())
+  name                 String
+  logo                 String?
+  currency             String         @default("$")
+  taxRate              Float          @default(11.9)
+  bonusRate            Float          @default(10)
+  dividendRate         Float          @default(72.26)
+  webhookUrl           String?        @db.Text
+  webhookDay           Int            @default(1)
+  webhookHour          Int            @default(1)
+  stockAlertWebhookUrl String?        @db.Text
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  accessRoles          AccessRole[]
+  charges              Charge[]
+  employees            Employee[]
+  grades               Grade[]
+  ingredients          Ingredient[]
+  invoices             Invoice[]
+  loyaltyCards         LoyaltyCard[]
+  menuItems            MenuItem[]
+  orders               Order[]
+  partners             Partner[]
+  payrolls             Payroll[]
+  suppliers            Supplier[]
+  users                User[]
+  weeklyReports        WeeklyReport[]
 
   @@map("restaurants")
 }
@@ -175,6 +177,7 @@ model MenuItem {
   deletedAt    DateTime?
   restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderLines   OrderLine[]
+  recipeLines  RecipeLine[]
 
   @@index([restaurantId], map: "menu_items_restaurantId_fkey")
   @@map("menu_items")
@@ -384,6 +387,36 @@ model LoyaltyCard {
 
   @@index([restaurantId], map: "loyalty_cards_restaurantId_fkey")
   @@map("loyalty_cards")
+}
+
+model Ingredient {
+  id           String       @id @default(cuid())
+  restaurantId String
+  name         String
+  quantity     Float        @default(0)
+  minQuantity  Float        @default(0)
+  imageUrl     String?      @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  recipeLines  RecipeLine[]
+
+  @@index([restaurantId])
+  @@map("ingredients")
+}
+
+model RecipeLine {
+  id           String     @id @default(cuid())
+  menuItemId   String
+  ingredientId String
+  quantity     Float
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, ingredientId])
+  @@index([menuItemId])
+  @@index([ingredientId])
+  @@map("recipe_lines")
 }
 
 enum UserRole {
