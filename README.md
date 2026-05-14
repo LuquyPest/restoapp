@@ -25,7 +25,8 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
 |---|---|
 | Dashboard | KPIs semaine/mois, CA vs semaine précédente, bénéfice hebdomadaire |
 | Commandes | Prise de commandes avec panier (quantité saisie à la main), historique filtrable |
-| Menu | Carte avec catégories, prix, coût de revient, images |
+| Menu | Carte avec catégories, prix, coût de revient, images, recettes liées au stock |
+| Stock | Gestion des ingrédients (quantité, seuil d'alerte, image), déduction automatique à la vente |
 | Employés | Gestion, grades (% salaire / dividende), suppression de grade, reset mot de passe |
 | Fiche de paie | Génération des payes hebdomadaires par employé |
 | Charges | Déductibles / non-déductibles, permanentes ou ponctuelles |
@@ -34,9 +35,11 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
 | Cartes de fidélité | Remises client avec date d'expiration |
 | Bilan hebdomadaire | Compte de résultat complet, export HTML identique au rapport affiché |
 | Analyse des ventes | CA par semaine/produit, historique |
-| Paramètres | Taux (prime, dividende), devise, logo personnalisé (URL), webhook |
-| Webhook | Envoi automatique du bilan HTML en pièce jointe (Discord ou POST JSON) |
-| Super Admin | Gestion des restaurants, logs d'audit en temps réel par restaurant |
+| Recherche globale | Barre de recherche fixe dans le header (employés, articles, factures, commandes) |
+| Notifications | Alertes persistantes en base : stock bas + factures en retard, dismiss individuel ou global |
+| Paramètres | Taux (prime, dividende), devise, logo (URL), webhook hebdomadaire, webhook alerte stock |
+| Webhook | Bilan HTML en pièce jointe (Discord ou POST JSON) + alertes stock bas |
+| Super Admin | Gestion des restaurants, type d'imposition par restaurant, logs d'audit en temps réel |
 
 ---
 
@@ -48,6 +51,8 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
 | Dashboard personnel | — | — | ✅ |
 | Gestion employés & grades | ✅ | ✅ | — |
 | Menu (lecture + écriture) | ✅ | ✅ | ✅ (lecture) |
+| Recettes & stock (écriture) | ✅ | — | — |
+| Stock (lecture/écriture) | ✅ | — | — |
 | Commandes | ✅ | ✅ | ✅ |
 | Fiche de paie (générer) | ✅ | ✅ | — |
 | Fiche de paie (ses payes) | — | — | ✅ |
@@ -55,6 +60,9 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
 | Partenaires, fidélité | ✅ | ✅ | — |
 | Bilan, analyses | ✅ | — | — |
 | Paramètres | ✅ | — | — |
+| Notifications (stock + factures) | ✅ | ✅ | — |
+| Recherche globale | ✅ | ✅ | ✅ |
+| Rôles d'accès personnalisés | ✅ | — | — |
 
 ---
 
@@ -199,26 +207,30 @@ sudo certbot --nginx -d votre-domaine.com
 ```
 restoapp/
 ├── prisma/
-│   ├── schema.prisma         # Schéma (19 modèles)
+│   ├── schema.prisma         # Schéma (22 modèles)
 │   └── seed.ts               # Données de démo
 ├── public/
 │   └── logo.png              # Logo de l'application
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/login/     # Page de connexion
-│   │   ├── (dashboard)/      # Pages protégées
+│   │   ├── (dashboard)/      # Pages protégées (dont /stock)
 │   │   ├── (admin)/admin/    # Interface super-admin
 │   │   └── api/              # Routes API REST
-│   ├── components/           # Composants React par module
+│   ├── components/
+│   │   ├── layout/           # Sidebar (notifications + cloche), SearchBar
+│   │   └── ...               # Composants par module
 │   ├── lib/
 │   │   ├── auth.ts           # Config Auth.js v5 + lockout compte
 │   │   ├── prisma.ts         # Client Prisma singleton
-│   │   ├── utils.ts          # Helpers partagés (dates, calculs, formatage)
+│   │   ├── utils.ts          # Helpers partagés + calculateTax multi-type
 │   │   ├── logger.ts         # Audit logs asynchrones
 │   │   ├── rate-limit.ts     # Rate limiting persisté en base
+│   │   ├── notifications.ts  # Création/check notifications (stock, factures)
 │   │   ├── report-html.ts    # Générateur HTML bilan hebdomadaire
 │   │   ├── webhook-payload.ts# Construction + envoi webhook
-│   │   └── page-access.ts    # Contrôle d'accès par page/rôle
+│   │   ├── page-access.ts    # Contrôle d'accès par page/rôle
+│   │   └── page-permissions.ts # Pages configurables pour rôles personnalisés
 │   └── middleware.ts         # Auth + CSRF + rate limit login
 └── next.config.js            # Headers sécurité, packages serveur
 ```
@@ -235,8 +247,8 @@ restoapp/
 | CSRF | Vérification exacte de l'origine (`NEXTAUTH_URL`) sur toutes les mutations |
 | Injection SQL | Prisma uniquement (requêtes préparées, zéro SQL brut) |
 | Accès non autorisé | JWT 2h + vérification `restaurantId` sur chaque requête API |
-| Élévation de privilèges | Rôle vérifié (`OWNER`/`MANAGER`/`EMPLOYEE`) sur chaque endpoint |
-| SSRF webhook | Blocage IPs privées/localhost + forçage HTTPS sur l'URL webhook |
+| Élévation de privilèges | Rôle vérifié (`OWNER`/`MANAGER`/`EMPLOYEE`) + rôles d'accès personnalisés |
+| SSRF webhook | Blocage IPs privées/localhost + forçage HTTPS sur toutes les URLs webhook |
 | Clickjacking | `X-Frame-Options: DENY` + `frame-ancestors 'none'` (CSP) |
 | MIME sniffing | `X-Content-Type-Options: nosniff` |
 | Transport | `HSTS` max-age 2 ans avec preload |
@@ -258,6 +270,21 @@ sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw enable
 ```
+
+---
+
+## Types d'imposition
+
+Configurables par restaurant depuis le panel Super Admin (création ou modification).
+
+| Type | Tranches |
+|---|---|
+| **Type 1** | $1–$1 000 000 : 35% · Au-delà : 45% |
+| **Type 2** | $0–$100 000 : 0% · $100 001–$1 000 000 : 30% · Au-delà : 40% |
+| **Type 3** (défaut) | $0–$50 000 : 0% · $50 001–$100 000 : 20% · $100 001–$500 000 : 30% · Au-delà : 40% |
+| **Personnalisé** | Tranches libres (min / max / taux %) ajoutables et modifiables dans l'admin |
+
+Le calcul est appliqué automatiquement dans le bilan hebdomadaire et le webhook.
 
 ---
 
