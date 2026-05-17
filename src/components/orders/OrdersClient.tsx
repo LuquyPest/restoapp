@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo } from "react"
 import { Plus, Minus, ShoppingCart, Trash2, CheckCircle, Clock, XCircle, Search, ImageIcon, Tag, Filter, CreditCard } from "lucide-react"
-import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { formatCurrency, formatDateTime, getISOWeek } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -97,6 +97,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
     if (cart.length === 0) return
     setLoading(true)
     try {
+      const clientNow = new Date()
       const res = await fetch("/api/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,6 +107,8 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
           loyaltyCardId: selectedLoyaltyId || null,
           customAdjustmentType: adjRawValue > 0 ? adjType : null,
           customAdjustmentValue: adjRawValue > 0 ? adjSignedValue : null,
+          weekNumber: getISOWeek(clientNow),
+          year: clientNow.getFullYear(),
         }),
       })
       if (!res.ok) throw new Error()

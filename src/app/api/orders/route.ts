@@ -15,6 +15,8 @@ const createSchema = z.object({
   loyaltyCardId: z.string().optional().nullable(),
   customAdjustmentType: z.enum(["PERCENT", "FIXED"]).optional().nullable(),
   customAdjustmentValue: z.number().min(-100000).max(100000).optional().nullable(),
+  weekNumber: z.number().int().min(1).max(53).optional(),
+  year: z.number().int().min(2020).max(2099).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -27,8 +29,8 @@ export async function POST(req: NextRequest) {
 
   const { restaurantId } = session.user
   const now = new Date()
-  const weekNumber = getISOWeek(now)
-  const year = now.getFullYear()
+  const weekNumber = parsed.data.weekNumber ?? getISOWeek(now)
+  const year = parsed.data.year ?? now.getFullYear()
 
   // Fetch prices from DB — never trust client-supplied prices
   const menuItemIds = parsed.data.lines.map(l => l.menuItemId)
