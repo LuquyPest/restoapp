@@ -84,6 +84,10 @@ export function formatDateTime(date: Date | string) {
   return new Date(date).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
+export function getISOWeeksInYear(year: number): number {
+  return getISOWeek(new Date(year, 11, 28))
+}
+
 export function getWeekRange() {
   const now = new Date()
   const start = new Date(now)

@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency, formatDateTime } from "@/lib/utils"
+import { formatCurrency, formatDateTime, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -29,8 +29,8 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
   function navigate(delta: number) {
     let w = selectedWeek + delta
     let y = selectedYear
-    if (w < 1) { w = 52; y-- }
-    if (w > 52) { w = 1; y++ }
+    if (w < 1) { y--; w = getISOWeeksInYear(y) }
+    if (w > getISOWeeksInYear(y)) { w = 1; y++ }
     router.push(`/dashboard?week=${w}&year=${y}`)
   }
 
@@ -75,7 +75,7 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
             S{String(selectedWeek).padStart(2,"0")} {selectedYear}
             {isCurrentWeek && <Badge variant="default" className="text-[10px] px-1.5 ml-1">En cours</Badge>}
           </div>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)} disabled={isCurrentWeek}><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 

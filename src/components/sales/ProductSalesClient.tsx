@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, getISOWeeksInYear } from "@/lib/utils"
 import { Package, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
@@ -23,7 +23,8 @@ export default function ProductSalesClient({ products, currency, selectedWeek, s
 
   function navigate(delta: number) {
     let w = selectedWeek + delta; let y = selectedYear
-    if (w < 1) { w = 52; y-- } if (w > 52) { w = 1; y++ }
+    if (w < 1) { y--; w = getISOWeeksInYear(y) }
+    if (w > getISOWeeksInYear(y)) { w = 1; y++ }
     router.push(`/sales/products?week=${w}&year=${y}`)
   }
 
@@ -40,7 +41,7 @@ export default function ProductSalesClient({ products, currency, selectedWeek, s
             S{String(selectedWeek).padStart(2,"0")} {selectedYear}
             {isCurrentWeek && <Badge variant="default" className="text-[10px] px-1.5 ml-1">En cours</Badge>}
           </div>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)} disabled={isCurrentWeek}><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 

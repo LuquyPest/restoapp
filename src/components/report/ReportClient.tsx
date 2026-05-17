@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { formatCurrency, getISOWeek } from "@/lib/utils"
+import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -269,8 +269,14 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
     URL.revokeObjectURL(url)
   }
 
-  function prevWeek() { if (week === 1) { setWeek(52); setYear(y => y-1) } else setWeek(w => w-1) }
-  function nextWeek() { if (week === 52) { setWeek(1); setYear(y => y+1) } else setWeek(w => w+1) }
+  function prevWeek() {
+    if (week === 1) { const py = year - 1; setYear(py); setWeek(getISOWeeksInYear(py)) }
+    else setWeek(w => w - 1)
+  }
+  function nextWeek() {
+    if (week >= getISOWeeksInYear(year)) { setWeek(1); setYear(y => y + 1) }
+    else setWeek(w => w + 1)
+  }
 
   const Row = ({ label, value, bold, indent, color }: any) => (
     <div className={`flex justify-between items-center py-1.5 border-b border-border/40 last:border-0 ${indent ? "pl-4" : ""}`}>
