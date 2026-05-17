@@ -2,7 +2,8 @@
 import { formatCurrency, formatDateTime, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus } from "lucide-react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,14 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
   const clientNow = new Date()
   currentWeek = getISOWeek(clientNow)
   currentYear = clientNow.getFullYear()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has("week")) {
+      const cw = getISOWeek(new Date()); const cy = new Date().getFullYear()
+      if (cw !== selectedWeek || cy !== selectedYear) router.replace(`/dashboard?week=${cw}&year=${cy}`)
+    }
+  }, [])
 
   function navigate(delta: number) {
     let w = selectedWeek + delta

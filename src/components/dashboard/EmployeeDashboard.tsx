@@ -2,6 +2,7 @@
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,14 @@ export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue,
   currentWeek = getISOWeek(clientNow)
   currentYear = clientNow.getFullYear()
   const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has("week")) {
+      const cw = getISOWeek(new Date()); const cy = new Date().getFullYear()
+      if (cw !== selectedWeek || cy !== selectedYear) router.replace(`/dashboard?week=${cw}&year=${cy}`)
+    }
+  }, [])
 
   function navigate(delta: number) {
     let w = selectedWeek + delta

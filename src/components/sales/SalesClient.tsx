@@ -1,6 +1,7 @@
 "use client"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,15 @@ export default function SalesClient({ stats, currency, selectedWeek, selectedYea
   const clientNow = new Date()
   currentWeek = getISOWeek(clientNow)
   currentYear = clientNow.getFullYear()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has("week")) {
+      const cw = getISOWeek(new Date()); const cy = new Date().getFullYear()
+      if (cw !== selectedWeek || cy !== selectedYear) router.replace(`/sales?week=${cw}&year=${cy}`)
+    }
+  }, [])
+
   const totals = {
     revenue: stats.reduce((s,e) => s+e.revenue, 0),
     cost: stats.reduce((s,e) => s+e.costRevenue, 0),

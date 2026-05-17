@@ -1,6 +1,7 @@
 "use client"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { Package, ChevronLeft, ChevronRight } from "lucide-react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +24,14 @@ export default function ProductSalesClient({ products, currency, selectedWeek, s
   currentWeek = getISOWeek(clientNow)
   currentYear = clientNow.getFullYear()
   const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has("week")) {
+      const cw = getISOWeek(new Date()); const cy = new Date().getFullYear()
+      if (cw !== selectedWeek || cy !== selectedYear) router.replace(`/sales/products?week=${cw}&year=${cy}`)
+    }
+  }, [])
 
   function navigate(delta: number) {
     let w = selectedWeek + delta; let y = selectedYear
