@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency, getISOWeeksInYear } from "@/lib/utils"
+import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { Package, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
@@ -19,6 +19,9 @@ export default function ProductSalesClient({ products, currency, selectedWeek, s
   const fmt = (n: number) => formatCurrency(n, currency)
   const totalRevenue = products.reduce((s, p) => s + p.revenue, 0)
   const totalQty = products.reduce((s, p) => s + p.qty, 0)
+  const clientNow = new Date()
+  currentWeek = getISOWeek(clientNow)
+  currentYear = clientNow.getFullYear()
   const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
 
   function navigate(delta: number) {

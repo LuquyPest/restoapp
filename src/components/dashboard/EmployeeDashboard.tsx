@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency, getISOWeeksInYear } from "@/lib/utils"
+import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -20,6 +20,9 @@ interface Props {
 export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue, weekSalary, monthSalary, currency, weekOrderCount, monthOrderCount, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
   const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
+  const clientNow = new Date()
+  currentWeek = getISOWeek(clientNow)
+  currentYear = clientNow.getFullYear()
   const isCurrentWeek = selectedWeek === currentWeek && selectedYear === currentYear
 
   function navigate(delta: number) {

@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency, getISOWeeksInYear } from "@/lib/utils"
+import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, ShoppingCart, Banknote, Award, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,6 +21,9 @@ interface Props {
 export default function SalesClient({ stats, currency, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
   const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
+  const clientNow = new Date()
+  currentWeek = getISOWeek(clientNow)
+  currentYear = clientNow.getFullYear()
   const totals = {
     revenue: stats.reduce((s,e) => s+e.revenue, 0),
     cost: stats.reduce((s,e) => s+e.costRevenue, 0),

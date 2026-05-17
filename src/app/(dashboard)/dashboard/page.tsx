@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { getWeekRange, getMonthRange, getISOWeek } from "@/lib/utils"
+import { getWeekRange, getMonthRange, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import OwnerDashboard from "@/components/dashboard/OwnerDashboard"
 import EmployeeDashboard from "@/components/dashboard/EmployeeDashboard"
 
@@ -43,11 +43,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     })
     if (!employee) redirect("/login")
 
-    const { start: weekStart, end: weekEnd } = getWeekRangeByWeek(selectedWeek, selectedYear)
+    const { start: weekStart } = getWeekRangeByWeek(selectedWeek, selectedYear)
     const { start: monthStart, end: monthEnd } = getMonthRange()
 
     const [weekOrdersWithLines, monthOrders] = await Promise.all([
-      prisma.order.findMany({ where: { employeeId: employee.id, status: "CONFIRMED", createdAt: { gte: weekStart, lte: weekEnd } }, include: { lines: true } }),
+      prisma.order.findMany({ where: { employeeId: employee.id, status: "CONFIRMED", weekNumber: selectedWeek, year: selectedYear }, include: { lines: true } }),
       prisma.order.findMany({ where: { employeeId: employee.id, status: "CONFIRMED", createdAt: { gte: monthStart, lte: monthEnd } }, include: { lines: true } }),
     ])
 
@@ -86,15 +86,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   // Owner dashboard
-  const { start: weekStart, end: weekEnd } = getWeekRangeByWeek(selectedWeek, selectedYear)
+  const { start: weekStart } = getWeekRangeByWeek(selectedWeek, selectedYear)
 
-  const prevWeek = selectedWeek === 1 ? 52 : selectedWeek - 1
+  const prevWeek = selectedWeek === 1 ? getISOWeeksInYear(selectedYear - 1) : selectedWeek - 1
   const prevWeekYear = selectedWeek === 1 ? selectedYear - 1 : selectedYear
-  const { start: prevWeekStart, end: prevWeekEnd } = getWeekRangeByWeek(prevWeek, prevWeekYear)
 
   const [weekOrders, prevWeekOrders, totalEmployees, pendingInvoices, recentOrders, payrolls] = await Promise.all([
-    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", createdAt: { gte: weekStart, lte: weekEnd } } }),
-    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", createdAt: { gte: prevWeekStart, lte: prevWeekEnd } } }),
+    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: selectedWeek, year: selectedYear } }),
+    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: prevWeek, year: prevWeekYear } }),
     prisma.employee.count({ where: { restaurantId, isActive: true } }),
     prisma.invoice.count({ where: { restaurantId, status: { in: ["PENDING", "OVERDUE"] } } }),
     prisma.order.findMany({
@@ -110,7 +109,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const totalPayroll = payrolls.reduce((s, p) => s + p.netSalary, 0)
   const totalCharges = totalPayroll + payrolls.reduce((s, p) => s + p.taxes, 0)
 
-  // Daily chart data
+  // Daily chart data (UTC-based day bucketing)
   const dailyData = DAYS.map((label, i) => {
     const dayStart = new Date(weekStart); dayStart.setDate(weekStart.getDate() + i); dayStart.setHours(0,0,0,0)
     const dayEnd = new Date(dayStart); dayEnd.setHours(23,59,59,999)

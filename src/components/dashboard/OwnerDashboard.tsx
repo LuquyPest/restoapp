@@ -1,5 +1,5 @@
 "use client"
-import { formatCurrency, formatDateTime, getISOWeeksInYear } from "@/lib/utils"
+import { formatCurrency, formatDateTime, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -25,6 +25,9 @@ interface Props {
 export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, prevWeekOrderCount, recentOrders, currency, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
   const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
+  const clientNow = new Date()
+  currentWeek = getISOWeek(clientNow)
+  currentYear = clientNow.getFullYear()
 
   function navigate(delta: number) {
     let w = selectedWeek + delta
