@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,16 +21,22 @@ export default function ReportClient({ currency, bonusRate: defaultBonus, divide
   const fmt = (n: number) => formatCurrency(n, currency)
   const pct = (n: number) => `${n?.toFixed(2) ?? 0}%`
 
-  const fetchReport = useCallback(async () => {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const fetchReport = useCallback(async (w: number, y: number) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/report?week=${week}&year=${year}`)
+      const res = await fetch(`/api/report?week=${w}&year=${y}`)
       const d = await res.json()
       setData(d)
     } finally { setLoading(false) }
-  }, [week, year])
+  }, [])
 
-  useEffect(() => { fetchReport() }, [fetchReport])
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchReport(week, year), 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [week, year, fetchReport])
 
   async function saveAndDownload() {
     if (!data) return

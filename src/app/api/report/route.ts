@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   const { restaurantId, role } = session.user
   if (!await checkApiPageAccess(session, "report", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
-  if (!await checkRateLimit(`report:${session.user.id}`, 10, 60_000)) {
+  if (!await checkRateLimit(`report:${session.user.id}`, 60, 60_000)) {
     return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 })
   }
 
