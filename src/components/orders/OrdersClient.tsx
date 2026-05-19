@@ -19,6 +19,7 @@ interface OrderLine { quantity: number; unitPrice: number; menuItem: { name: str
 interface Order {
   id: string; total: number; discountAmount: number; status: string; createdAt: Date; note: string | null
   customAdjustmentType: string | null; customAdjustmentValue: number | null
+  weekNumber: number; year: number
   employee: { id: string; firstName: string; lastName: string } | null
   partner: Partner | null
   loyaltyCard: LoyaltyCard | null
@@ -42,9 +43,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   const [selectedPartnerId, setSelectedPartnerId] = useState("")
   const [selectedLoyaltyId, setSelectedLoyaltyId] = useState("")
   const [filterEmployee, setFilterEmployee] = useState("")
-  const [filterDateFrom, setFilterDateFrom] = useState("")
-  const [filterDateTo, setFilterDateTo] = useState("")
-  const [filterStatus, setFilterStatus] = useState("")
+  const [filterWeek, setFilterWeek] = useState("")
   const [visibleCount, setVisibleCount] = useState(10)
   const [adjSign, setAdjSign] = useState<"plus" | "minus">("minus")
   const [adjType, setAdjType] = useState<"PERCENT" | "FIXED">("PERCENT")
@@ -74,18 +73,23 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
   const appliedDiscount = discountPercent > 0 ? (partnerDiscount >= loyaltyDiscount ? selectedPartner?.name : `${selectedLoyalty?.firstName} ${selectedLoyalty?.lastName}`) : null
 
+  const weekOptions = useMemo(() => {
+    const seen = new Set<string>()
+    return orders
+      .map(o => ({ key: `${o.weekNumber}-${o.year}`, label: `S${String(o.weekNumber).padStart(2,"0")} ${o.year}` }))
+      .filter(w => { if (seen.has(w.key)) return false; seen.add(w.key); return true })
+  }, [orders])
+
   const filteredOrders = useMemo(() => orders.filter(o => {
     if (filterEmployee && o.employee?.id !== filterEmployee) return false
-    if (filterStatus && o.status !== filterStatus) return false
-    if (filterDateFrom && new Date(o.createdAt) < new Date(filterDateFrom)) return false
-    if (filterDateTo && new Date(o.createdAt) > new Date(filterDateTo + "T23:59:59")) return false
+    if (filterWeek && `${o.weekNumber}-${o.year}` !== filterWeek) return false
     return true
-  }), [orders, filterEmployee, filterStatus, filterDateFrom, filterDateTo])
+  }), [orders, filterEmployee, filterWeek])
 
   const totalFiltered = filteredOrders.filter(o => o.status === "CONFIRMED").reduce((s, o) => s + o.total, 0)
   const visibleOrders = filteredOrders.slice(0, visibleCount)
 
-  useEffect(() => { setVisibleCount(10) }, [filterEmployee, filterStatus, filterDateFrom, filterDateTo])
+  useEffect(() => { setVisibleCount(10) }, [filterEmployee, filterWeek])
 
   function addToCart(item: MenuItem) {
     setCart(prev => { const ex = prev.find(c => c.item.id === item.id); if (ex) return prev.map(c => c.item.id === item.id ? { ...c, qty: c.qty + 1 } : c); return [...prev, { item, qty: 1 }] })
@@ -332,28 +336,24 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                     <Select value={filterEmployee || "all"} onValueChange={v => setFilterEmployee(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Tous" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Tous</SelectItem>
+                        <SelectItem value="all">Tous les employés</SelectItem>
                         {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.firstName} {e.lastName}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 )}
                 <div className="space-y-1">
-                  <Label className="text-xs">Statut</Label>
-                  <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>
-                    <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Tous" /></SelectTrigger>
+                  <Label className="text-xs">Semaine</Label>
+                  <Select value={filterWeek || "all"} onValueChange={v => setFilterWeek(v === "all" ? "" : v)}>
+                    <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Toutes" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
-                      <SelectItem value="CONFIRMED">Confirmée</SelectItem>
-                      <SelectItem value="PENDING">En attente</SelectItem>
-                      <SelectItem value="CANCELLED">Annulée</SelectItem>
+                      <SelectItem value="all">Toutes les semaines</SelectItem>
+                      {weekOptions.map(w => <SelectItem key={w.key} value={w.key}>{w.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1"><Label className="text-xs">Du</Label><Input type="date" className="h-8 w-36 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} /></div>
-                <div className="space-y-1"><Label className="text-xs">Au</Label><Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} /></div>
-                {(filterEmployee || filterStatus || filterDateFrom || filterDateTo) && (
-                  <Button variant="ghost" size="sm" onClick={() => { setFilterEmployee(""); setFilterStatus(""); setFilterDateFrom(""); setFilterDateTo("") }}>Réinitialiser</Button>
+                {(filterEmployee || filterWeek) && (
+                  <Button variant="ghost" size="sm" onClick={() => { setFilterEmployee(""); setFilterWeek("") }}>Réinitialiser</Button>
                 )}
               </div>
               <div className="flex gap-4 mt-3 pt-3 border-t text-sm">
