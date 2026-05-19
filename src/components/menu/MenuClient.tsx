@@ -131,7 +131,7 @@ export default function MenuClient({ items, role, currency, ingredients }: Props
               <Card key={item.id} className={`overflow-hidden transition-all ${!item.isAvailable ? "opacity-50" : "hover:border-border/80"}`}>
                 <div className="relative">
                   {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="h-28 w-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
+                    <img src={item.imageUrl} alt={item.name} className="h-28 w-full object-contain bg-muted p-1" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
                   ) : (
                     <div className="h-24 bg-muted flex items-center justify-center">
                       <ImageIcon className="h-6 w-6 text-muted-foreground" />

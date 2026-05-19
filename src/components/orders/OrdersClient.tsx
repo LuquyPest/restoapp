@@ -163,7 +163,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                 return (
                   <Card key={item.id} className="overflow-hidden cursor-pointer transition-all hover:border-primary/50 hover:-translate-y-0.5" onClick={() => addToCart(item)}>
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="h-24 w-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
+                      <img src={item.imageUrl} alt={item.name} className="h-24 w-full object-contain bg-muted p-1" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
                     ) : (
                       <div className="h-20 bg-muted flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
                     )}
