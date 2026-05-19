@@ -200,26 +200,28 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                 <>
                   <div className="space-y-2">
                     {cart.map(c => (
-                      <div key={c.item.id} className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 border border-border bg-muted flex items-center justify-center">
+                      <div key={c.item.id} className="flex items-start gap-2">
+                        <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 border border-border bg-muted flex items-center justify-center mt-0.5">
                           {c.item.imageUrl
                             ? <img src={c.item.imageUrl} alt={c.item.name} className="h-full w-full object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
                             : <ImageIcon className="h-3 w-3 text-muted-foreground" />}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, -1)}><Minus className="h-3 w-3" /></Button>
-                          <input
-                            type="number" min="1"
-                            value={c.qty}
-                            onChange={e => setQty(c.item.id, e.target.value)}
-                            onFocus={e => e.target.select()}
-                            className="h-6 w-10 text-center text-sm font-semibold bg-transparent border border-border rounded focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
-                          <Button size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, 1)}><Plus className="h-3 w-3" /></Button>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <p className="text-xs font-medium leading-snug">{c.item.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <Button variant="outline" size="icon" className="h-6 w-6 shrink-0" onClick={() => updateQty(c.item.id, -1)}><Minus className="h-3 w-3" /></Button>
+                            <input
+                              type="number" min="1"
+                              value={c.qty}
+                              onChange={e => setQty(c.item.id, e.target.value)}
+                              onFocus={e => e.target.select()}
+                              className="h-6 w-10 text-center text-sm font-semibold bg-transparent border border-border rounded focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                            <Button size="icon" className="h-6 w-6 shrink-0" onClick={() => updateQty(c.item.id, 1)}><Plus className="h-3 w-3" /></Button>
+                            <span className="flex-1 text-right text-sm font-semibold">{fmt(c.item.price * c.qty)}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:text-destructive" onClick={() => setCart(p => p.filter(x => x.item.id !== c.item.id))}><Trash2 className="h-3 w-3" /></Button>
+                          </div>
                         </div>
-                        <span className="flex-1 text-xs truncate">{c.item.name}</span>
-                        <span className="text-sm font-semibold">{fmt(c.item.price * c.qty)}</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => setCart(p => p.filter(x => x.item.id !== c.item.id))}><Trash2 className="h-3 w-3" /></Button>
                       </div>
                     ))}
                   </div>
