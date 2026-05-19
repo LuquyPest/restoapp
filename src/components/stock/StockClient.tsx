@@ -1,6 +1,7 @@
 "use client"
 import { useState, useMemo } from "react"
-import { Plus, Pencil, Trash2, Search, ImageIcon, AlertTriangle, Package } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, ImageIcon, AlertTriangle, Package, History } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -88,7 +89,12 @@ export default function StockClient({ ingredients: initial }: Props) {
           <h1 className="text-2xl font-bold tracking-tight">Stock</h1>
           <p className="text-sm text-muted-foreground mt-1">{ingredients.length} ingrédient{ingredients.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4" /> Ajouter</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/stock/history"><History className="h-4 w-4" /> Historique</Link>
+          </Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4" /> Ajouter</Button>
+        </div>
       </div>
 
       {lowStock.length > 0 && (
