@@ -184,7 +184,14 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
           {/* Cart */}
           <Card className="sticky top-6">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><ShoppingCart className="h-4 w-4 text-primary" />Panier</CardTitle>
+              <CardTitle className="flex items-center justify-between text-base">
+                <span className="flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" />Panier</span>
+                {cart.length > 0 && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive" onClick={() => setCart([])}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {cart.length === 0 ? (
@@ -194,6 +201,11 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                   <div className="space-y-2">
                     {cart.map(c => (
                       <div key={c.item.id} className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 border border-border bg-muted flex items-center justify-center">
+                          {c.item.imageUrl
+                            ? <img src={c.item.imageUrl} alt={c.item.name} className="h-full w-full object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
+                            : <ImageIcon className="h-3 w-3 text-muted-foreground" />}
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(c.item.id, -1)}><Minus className="h-3 w-3" /></Button>
                           <input
