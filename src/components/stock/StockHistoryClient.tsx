@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { ArrowLeft, Search, ChevronDown, ChevronRight, Package, TrendingDown } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,9 @@ interface Props { history: DeductionEntry[] }
 export default function StockHistoryClient({ history }: Props) {
   const [search, setSearch] = useState("")
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [visibleCount, setVisibleCount] = useState(10)
+
+  useEffect(() => { setVisibleCount(10) }, [search])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return history
@@ -55,6 +58,7 @@ export default function StockHistoryClient({ history }: Props) {
             <h1 className="text-2xl font-bold tracking-tight">Historique du stock</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {filtered.length} commande{filtered.length !== 1 ? "s" : ""} avec impact stock
+              {visibleCount < filtered.length && ` · ${visibleCount} affichées`}
             </p>
           </div>
         </div>
@@ -81,7 +85,7 @@ export default function StockHistoryClient({ history }: Props) {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map(entry => {
+          {filtered.slice(0, visibleCount).map(entry => {
             const isOpen = expanded.has(entry.id)
             return (
               <Card key={entry.id} className="overflow-hidden">
@@ -142,6 +146,13 @@ export default function StockHistoryClient({ history }: Props) {
               </Card>
             )
           })}
+          {visibleCount < filtered.length && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => setVisibleCount(v => v + 10)}>
+                Afficher plus ({filtered.length - visibleCount} restantes)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

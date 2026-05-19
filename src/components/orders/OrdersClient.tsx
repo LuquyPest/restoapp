@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Plus, Minus, ShoppingCart, Trash2, CheckCircle, Clock, XCircle, Search, ImageIcon, Tag, Filter, CreditCard } from "lucide-react"
 import { formatCurrency, formatDateTime, getISOWeek } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -45,6 +45,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   const [filterDateFrom, setFilterDateFrom] = useState("")
   const [filterDateTo, setFilterDateTo] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
+  const [visibleCount, setVisibleCount] = useState(10)
   const [adjSign, setAdjSign] = useState<"plus" | "minus">("minus")
   const [adjType, setAdjType] = useState<"PERCENT" | "FIXED">("PERCENT")
   const [adjValue, setAdjValue] = useState("")
@@ -82,6 +83,9 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
   }), [orders, filterEmployee, filterStatus, filterDateFrom, filterDateTo])
 
   const totalFiltered = filteredOrders.filter(o => o.status === "CONFIRMED").reduce((s, o) => s + o.total, 0)
+  const visibleOrders = filteredOrders.slice(0, visibleCount)
+
+  useEffect(() => { setVisibleCount(10) }, [filterEmployee, filterStatus, filterDateFrom, filterDateTo])
 
   function addToCart(item: MenuItem) {
     setCart(prev => { const ex = prev.find(c => c.item.id === item.id); if (ex) return prev.map(c => c.item.id === item.id ? { ...c, qty: c.qty + 1 } : c); return [...prev, { item, qty: 1 }] })
@@ -375,7 +379,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucune commande</TableCell></TableRow>
-                ) : filteredOrders.map(order => (
+                ) : visibleOrders.map(order => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.employee ? `${order.employee.firstName} ${order.employee.lastName}` : "—"}</TableCell>
                     <TableCell className="text-muted-foreground max-w-[180px]">
@@ -421,6 +425,13 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
               </TableBody>
             </Table>
           </Card>
+          {visibleCount < filteredOrders.length && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => setVisibleCount(v => v + 10)}>
+                Afficher plus ({filteredOrders.length - visibleCount} restantes)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
