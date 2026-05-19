@@ -1,7 +1,7 @@
 # RestoCompta
 
 SaaS multi-tenant de gestion comptable et opérationnelle pour restaurants et bars.  
-Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
+Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB
 
 ---
 
