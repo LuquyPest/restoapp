@@ -308,4 +308,66 @@ pm2 restart restoapp
 ```
 
 
-Docker arrive
+---
+
+## Déploiement avec Docker
+
+### Prérequis
+
+- [Docker](https://docs.docker.com/get-docker/) 24+
+- [Docker Compose](https://docs.docker.com/compose/) v2
+
+### 1. Variables d'environnement
+
+```bash
+cp .env.example .env
+```
+
+Éditer `.env` — au minimum changer les mots de passe et secrets :
+
+```env
+DB_ROOT_PASSWORD=rootpassword
+DB_NAME=restoapp
+DB_USER=restoapp
+DB_PASSWORD=restopassword
+
+AUTH_SECRET=           # openssl rand -base64 32
+NEXTAUTH_URL=http://localhost:3000
+AUTH_TRUST_HOST=true
+
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=changeme
+CRON_SECRET=           # openssl rand -base64 32
+```
+
+### 2. Lancer
+
+```bash
+docker compose up -d --build
+```
+
+Le schéma Prisma est automatiquement appliqué au démarrage du conteneur. L'application est disponible sur [http://localhost:3000](http://localhost:3000).
+
+### 3. Commandes utiles
+
+```bash
+# Voir les logs
+docker compose logs -f app
+
+# Appliquer manuellement le schéma (si besoin)
+docker compose exec app npx prisma db push
+
+# Arrêter
+docker compose down
+
+# Arrêter et supprimer les données
+docker compose down -v
+```
+
+### 4. Derrière un reverse proxy (Nginx / Traefik)
+
+Retirer la section `ports` dans `docker-compose.yml` et connecter votre reverse proxy au service `app` sur le port `3000`. Penser à mettre `NEXTAUTH_URL` à l'URL publique du site.
+
+### Note
+
+Le volume `db_data` persiste la base de données. Ne pas supprimer ce volume sans avoir fait une sauvegarde.
