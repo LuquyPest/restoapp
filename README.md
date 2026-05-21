@@ -306,3 +306,6 @@ pm2 status
 pm2 logs restoapp
 pm2 restart restoapp
 ```
+
+
+Docker arrive
