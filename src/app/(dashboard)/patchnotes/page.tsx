@@ -6,6 +6,14 @@ import { NotebookPen, Plus, Wrench, Zap } from "lucide-react"
 
 const NOTES = [
   {
+    version: "1.5.0",
+    date: "21 mai 2026",
+    entries: [
+      { type: "feat", text: "Dashboard : courbe du CA sur les 8 dernières semaines — tendance visible en un coup d'œil" },
+      { type: "feat", text: "Dashboard : classement des 5 articles les plus vendus sur le mois en cours avec barre de progression" },
+    ],
+  },
+  {
     version: "1.4.0",
     date: "19 mai 2026",
     entries: [

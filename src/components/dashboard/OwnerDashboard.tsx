@@ -1,6 +1,6 @@
 "use client"
 import { formatCurrency, formatDateTime, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
-import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus } from "lucide-react"
+import { TrendingUp, TrendingDown, Users, ShoppingCart, FileText, Banknote, CheckCircle, Clock, AlertCircle, ArrowUpRight, ChevronLeft, ChevronRight, Minus, Trophy } from "lucide-react"
 import Link from "next/link"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -15,15 +15,17 @@ interface RecentOrder {
   employee: { firstName: string; lastName: string } | null
   lines: { quantity: number; menuItem: { name: string } }[]
 }
+interface TopItem { name: string; quantity: number }
 interface Props {
   weekRevenue: number; totalCharges: number; benefit: number
   totalEmployees: number; pendingInvoices: number; weekOrderCount: number; prevWeekOrderCount: number
   recentOrders: RecentOrder[]; currency: string
-  dailyData: DayData[]; selectedWeek: number; selectedYear: number
+  dailyData: DayData[]; weeklyTrend: DayData[]; topItems: TopItem[]
+  selectedWeek: number; selectedYear: number
   currentWeek: number; currentYear: number
 }
 
-export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, prevWeekOrderCount, recentOrders, currency, dailyData, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
+export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, totalEmployees, pendingInvoices, weekOrderCount, prevWeekOrderCount, recentOrders, currency, dailyData, weeklyTrend, topItems, selectedWeek, selectedYear, currentWeek, currentYear }: Props) {
   const router = useRouter()
   const fmt = (n: number) => formatCurrency(n, currency)
   const clientNow = new Date()
@@ -118,6 +120,49 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
           <BarChart data={dailyData} currency={currency} height={140} />
         </CardContent>
       </Card>
+
+      {/* 8-week trend + top items */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">CA — 8 dernières semaines</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 pb-4">
+            <BarChart data={weeklyTrend} currency={currency} height={140} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2 flex-row items-center gap-2 space-y-0">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-sm">Top articles du mois</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            {topItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-6 text-center">Aucune vente ce mois-ci</p>
+            ) : (
+              <div className="space-y-2">
+                {topItems.map((item, i) => {
+                  const max = topItems[0].quantity
+                  return (
+                    <div key={item.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 font-medium truncate">
+                          <span className={`shrink-0 font-bold ${i === 0 ? "text-amber-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-orange-400" : "text-muted-foreground"}`}>#{i + 1}</span>
+                          {item.name}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground ml-2">{item.quantity}×</span>
+                      </div>
+                      <div className="h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary/60 transition-all" style={{ width: `${(item.quantity / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-4">

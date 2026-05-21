@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { getWeekRange, getMonthRange, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
+import { getWeekRange, getMonthRange, getISOWeek, getISOWeeksInYear, getPrevWeeks } from "@/lib/utils"
 import OwnerDashboard from "@/components/dashboard/OwnerDashboard"
 import EmployeeDashboard from "@/components/dashboard/EmployeeDashboard"
 
@@ -91,7 +91,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const prevWeek = selectedWeek === 1 ? getISOWeeksInYear(selectedYear - 1) : selectedWeek - 1
   const prevWeekYear = selectedWeek === 1 ? selectedYear - 1 : selectedYear
 
-  const [weekOrders, prevWeekOrders, totalEmployees, pendingInvoices, recentOrders, payrolls] = await Promise.all([
+  const weeks8 = getPrevWeeks(selectedWeek, selectedYear, 8)
+  const { start: monthStart, end: monthEnd } = getMonthRange()
+
+  const [weekOrders, prevWeekOrders, totalEmployees, pendingInvoices, recentOrders, payrolls, trend8orders, monthLines] = await Promise.all([
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: selectedWeek, year: selectedYear } }),
     prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: prevWeek, year: prevWeekYear } }),
     prisma.employee.count({ where: { restaurantId, isActive: true } }),
@@ -103,6 +106,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       take: 10,
     }),
     prisma.payroll.findMany({ where: { restaurantId, year: selectedYear, weekNumber: selectedWeek } }),
+    prisma.order.findMany({
+      where: { restaurantId, status: "CONFIRMED", OR: weeks8.map(w => ({ weekNumber: w.week, year: w.year })) },
+      select: { weekNumber: true, year: true, total: true },
+    }),
+    prisma.orderLine.findMany({
+      where: { order: { restaurantId, status: "CONFIRMED", createdAt: { gte: monthStart, lte: monthEnd } } },
+      select: { quantity: true, menuItem: { select: { name: true } } },
+    }),
   ])
 
   const weekRevenue = weekOrders.reduce((s, o) => s + o.total, 0)
@@ -117,6 +128,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return { label, value }
   })
 
+  // 8-week trend
+  const weeklyTrend = weeks8.map(w => ({
+    label: `S${String(w.week).padStart(2, "0")}`,
+    value: trend8orders.filter(o => o.weekNumber === w.week && o.year === w.year).reduce((s, o) => s + o.total, 0),
+  }))
+
+  // Top items this month
+  const itemMap = new Map<string, number>()
+  for (const line of monthLines) {
+    const name = line.menuItem.name
+    itemMap.set(name, (itemMap.get(name) ?? 0) + line.quantity)
+  }
+  const topItems = [...itemMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, quantity]) => ({ name, quantity }))
+
   return (
     <OwnerDashboard
       weekRevenue={weekRevenue}
@@ -129,6 +157,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       recentOrders={recentOrders as any}
       currency={restaurant.currency}
       dailyData={dailyData}
+      weeklyTrend={weeklyTrend}
+      topItems={topItems}
       selectedWeek={selectedWeek}
       selectedYear={selectedYear}
       currentWeek={currentWeek}

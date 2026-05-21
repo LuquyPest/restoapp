@@ -88,6 +88,17 @@ export function getISOWeeksInYear(year: number): number {
   return getISOWeek(new Date(year, 11, 28))
 }
 
+export function getPrevWeeks(week: number, year: number, count: number): { week: number; year: number }[] {
+  const result: { week: number; year: number }[] = []
+  let w = week, y = year
+  for (let i = 0; i < count; i++) {
+    result.unshift({ week: w, year: y })
+    w--
+    if (w < 1) { y--; w = getISOWeeksInYear(y) }
+  }
+  return result
+}
+
 export function getWeekRange() {
   const now = new Date()
   const start = new Date(now)
