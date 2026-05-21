@@ -137,12 +137,12 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Commandes</h1>
           <p className="text-sm text-muted-foreground mt-1">Nouvelle commande ou historique</p>
         </div>
-        <div className="flex bg-muted rounded-lg p-1 gap-1">
+        <div className="flex bg-muted rounded-lg p-1 gap-1 self-start">
           {(["order", "history"] as const).map(v => (
             <button key={v} onClick={() => setView(v)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {v === "order" ? `Commande${cartCount > 0 ? ` (${cartCount})` : ""}` : "Historique"}
@@ -190,7 +190,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
           </div>
 
           {/* Cart */}
-          <Card className="sticky top-6">
+          <Card className="lg:sticky lg:top-6">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center justify-between text-base">
                 <span className="flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" />Panier</span>
@@ -364,6 +364,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
           </Card>
 
           <Card>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -424,6 +425,7 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
           {visibleCount < filteredOrders.length && (
             <div className="flex justify-center pt-2">

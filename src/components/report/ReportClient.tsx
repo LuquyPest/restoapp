@@ -293,23 +293,23 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bilan hebdomadaire</h1>
           <p className="text-sm text-muted-foreground mt-1">Résumé financier par semaine</p>
         </div>
-        <Button onClick={saveAndDownload} disabled={downloading || !data}>
+        <Button onClick={saveAndDownload} disabled={downloading || !data} className="shrink-0">
           {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           {downloading ? "Génération..." : "Enregistrer & Télécharger"}
         </Button>
       </div>
 
       {/* Week nav */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
-        <div className="flex items-center gap-2 rounded-xl border bg-card px-5 py-2.5">
-          <span className="text-xl font-bold">S{String(week).padStart(2,"0")} {year}</span>
-          {data && <span className="text-sm text-muted-foreground">· {data.weekStart} → {data.weekEnd}</span>}
+        <div className="flex items-center gap-2 rounded-xl border bg-card px-4 py-2">
+          <span className="text-lg font-bold">S{String(week).padStart(2,"0")} {year}</span>
+          {data && <span className="text-sm text-muted-foreground hidden sm:inline">· {data.weekStart} → {data.weekEnd}</span>}
         </div>
         <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
       </div>
@@ -319,7 +319,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
       ) : data ? (
         <div className="space-y-6">
           {/* KPIs */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: "CA Total", value: fmt(data.revenue), color: "text-primary" },
               { label: "Salaires", value: fmt(data.totalSalaries), color: "text-amber-500" },
@@ -342,7 +342,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
           )}
 
           {/* Bilan columns */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2"><div className="flex justify-between items-center"><CardTitle className="text-sm">Compte de résultat</CardTitle><span className="text-base font-bold text-primary">{fmt(data.revenue)}</span></div></CardHeader>
               <CardContent className="pb-4 space-y-0">
@@ -385,6 +385,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Tableau employés — S{String(week).padStart(2,"0")} {year}</CardTitle></CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -421,6 +422,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
                   </TableRow>
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -429,6 +431,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Factures partenariat</CardTitle></CardHeader>
               <CardContent className="p-0">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader><TableRow><TableHead>Partenaire</TableHead><TableHead>Semaine</TableHead><TableHead>CA brut</TableHead><TableHead>Remise</TableHead><TableHead>Total facturé</TableHead></TableRow></TableHeader>
                   <TableBody>
@@ -443,6 +446,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           )}

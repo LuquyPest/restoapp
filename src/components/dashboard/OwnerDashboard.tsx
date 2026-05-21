@@ -77,13 +77,13 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
           <p className="text-sm text-muted-foreground mt-1">Vue d'ensemble de votre établissement</p>
         </div>
         {/* Week selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-semibold">
             S{String(selectedWeek).padStart(2,"0")} {selectedYear}
@@ -94,7 +94,7 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
           <Card key={i}>
             <CardContent className="p-5">
@@ -165,7 +165,7 @@ export default function OwnerDashboard({ weekRevenue, totalCharges, benefit, tot
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link href="/employees">
           <Card className="hover:border-border/80 transition-colors cursor-pointer group">
             <CardContent className="flex items-center gap-4 p-5">

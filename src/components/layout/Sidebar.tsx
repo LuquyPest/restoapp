@@ -62,9 +62,9 @@ const navGroups = [
 ]
 
 interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: Date | string }
-interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[] }
+interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void }
 
-export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [] }: Props) {
+export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose }: Props) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications)
@@ -114,7 +114,11 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-sidebar">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r bg-sidebar transition-transform duration-300 ease-in-out",
+        "md:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="flex flex-col border-b px-4 py-3 gap-2">
           {restaurantLogo
             ? <img src={restaurantLogo} alt={restaurantName} width={44} height={44} className="rounded-lg object-contain" />
@@ -146,7 +150,7 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
                     const Icon = item.icon
                     const active = pathname === item.href || (item.href !== "/sales" && pathname.startsWith(item.href + "/"))
                     return (
-                      <Link key={item.href} href={item.href} className={cn(
+                      <Link key={item.href} href={item.href} onClick={onMobileClose} className={cn(
                         "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150",
                         active ? "bg-primary/10 text-primary font-medium" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}>
@@ -181,7 +185,7 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
             </button>
 
             {notifOpen && (
-              <div className="absolute bottom-10 left-0 w-72 rounded-xl border bg-popover shadow-xl z-50 overflow-hidden">
+              <div className="absolute bottom-10 left-0 w-72 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover shadow-xl z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2.5 border-b">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Notifications {notifications.length > 0 && <span className="text-foreground">({notifications.length})</span>}

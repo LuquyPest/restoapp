@@ -51,16 +51,16 @@ export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue,
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bonjour, {employee.firstName} 👋</h1>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <Badge variant="default" className="gap-1"><Award className="h-3 w-3" />{employee.grade.name}</Badge>
             <span className="text-sm text-muted-foreground">{employee.grade.salaryPercent}% de commission sur CA net</span>
           </div>
         </div>
         {/* Week selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <div className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-semibold">
             S{String(selectedWeek).padStart(2,"0")} {selectedYear}
@@ -70,7 +70,7 @@ export default function EmployeeDashboard({ employee, weekRevenue, monthRevenue,
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {stats.map((s, i) => (
           <Card key={i}>
             <CardContent className="p-5">
