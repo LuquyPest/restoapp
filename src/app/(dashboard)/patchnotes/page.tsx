@@ -6,6 +6,18 @@ import { NotebookPen, Plus, Wrench, Zap } from "lucide-react"
 
 const NOTES = [
   {
+    version: "1.6.0",
+    date: "21 mai 2026",
+    entries: [
+      { type: "feat", text: "Site entièrement responsive : navigation, toutes les pages et tableaux sont utilisables depuis un téléphone" },
+      { type: "feat", text: "Menu mobile : icône hamburger dans le header ouvre la sidebar en drawer avec overlay, se ferme en cliquant à l'extérieur ou sur un lien" },
+      { type: "feat", text: "Grilles adaptées : les stats, cartes et colonnes passent automatiquement en 1 ou 2 colonnes sur petit écran" },
+      { type: "feat", text: "Tableaux (ventes, bilan, commandes, employés, partenaires) : scroll horizontal sur mobile au lieu de contenu coupé" },
+      { type: "feat", text: "Headers de navigation semaine : s'empilent verticalement sur mobile" },
+      { type: "feat", text: "Panier commandes : affiché sous les articles sur mobile (plein écran), sticky uniquement sur desktop" },
+    ],
+  },
+  {
     version: "1.5.0",
     date: "21 mai 2026",
     entries: [
