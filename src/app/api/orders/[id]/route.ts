@@ -48,8 +48,32 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
 
-  const order = await prisma.order.findFirst({ where: { id, restaurantId } })
+  const order = await prisma.order.findFirst({
+    where: { id, restaurantId },
+    include: { lines: true },
+  })
   if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 })
+
+  // Restore stock: reverse the same recipe-based deduction done at creation
+  const menuItemIds = order.lines.map(l => l.menuItemId)
+  if (menuItemIds.length > 0) {
+    const recipeLines = await prisma.recipeLine.findMany({
+      where: { menuItemId: { in: menuItemIds } },
+    })
+    if (recipeLines.length > 0) {
+      const restorations = new Map<string, number>()
+      for (const orderLine of order.lines) {
+        for (const r of recipeLines.filter(r => r.menuItemId === orderLine.menuItemId)) {
+          restorations.set(r.ingredientId, (restorations.get(r.ingredientId) ?? 0) + r.quantity * orderLine.quantity)
+        }
+      }
+      await Promise.all(
+        Array.from(restorations.entries()).map(([ingredientId, qty]) =>
+          prisma.ingredient.update({ where: { id: ingredientId }, data: { quantity: { increment: qty } } })
+        )
+      )
+    }
+  }
 
   await prisma.order.delete({ where: { id } })
 
