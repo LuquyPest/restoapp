@@ -129,6 +129,12 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
     router.refresh()
   }
 
+  async function deleteOrder(id: string) {
+    if (!confirm("Supprimer définitivement cette commande ? Cette action est irréversible.")) return
+    await fetch(`/api/orders/${id}`, { method: "DELETE" })
+    router.refresh()
+  }
+
   const StatusBadge = ({ s }: { s: string }) => {
     if (s === "CONFIRMED") return <Badge variant="success"><CheckCircle className="h-3 w-3" /> Confirmée</Badge>
     if (s === "CANCELLED") return <Badge variant="destructive"><XCircle className="h-3 w-3" /> Annulée</Badge>
@@ -413,12 +419,19 @@ export default function OrdersClient({ menuItems, orders, partners, loyaltyCards
                     <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(order.createdAt)}</TableCell>
                     {(role === "OWNER" || role === "MANAGER") && (
                       <TableCell>
-                        {order.status === "PENDING" && (
-                          <div className="flex gap-1.5">
-                            <Button variant="success" size="sm" className="h-7 text-xs" onClick={() => updateStatus(order.id, "CONFIRMED")}>Confirmer</Button>
-                            <Button variant="outline" size="sm" className="h-7 text-xs hover:bg-destructive/10 hover:text-destructive" onClick={() => updateStatus(order.id, "CANCELLED")}>Annuler</Button>
-                          </div>
-                        )}
+                        <div className="flex gap-1.5 items-center">
+                          {order.status === "PENDING" && (
+                            <>
+                              <Button variant="success" size="sm" className="h-7 text-xs" onClick={() => updateStatus(order.id, "CONFIRMED")}>Confirmer</Button>
+                              <Button variant="outline" size="sm" className="h-7 text-xs hover:bg-destructive/10 hover:text-destructive" onClick={() => updateStatus(order.id, "CANCELLED")}>Annuler</Button>
+                            </>
+                          )}
+                          {role === "OWNER" && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive shrink-0" title="Supprimer la commande" onClick={() => deleteOrder(order.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

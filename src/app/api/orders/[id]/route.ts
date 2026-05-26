@@ -38,3 +38,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   return NextResponse.json(updated)
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+
+  const { role, restaurantId } = session.user
+  if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
+
+  const { id } = await params
+
+  const order = await prisma.order.findFirst({ where: { id, restaurantId } })
+  if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 })
+
+  await prisma.order.delete({ where: { id } })
+
+  await log({
+    action: "ORDER_DELETED",
+    userId: session.user.id,
+    userEmail: session.user.email ?? undefined,
+    restaurantId,
+    ip: getIp(req.headers),
+    metadata: { orderId: id, total: order.total },
+  })
+
+  return NextResponse.json({ success: true })
+}
