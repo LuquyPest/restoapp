@@ -61,7 +61,8 @@ export default auth(async (req) => {
     return NextResponse.next()
   }
 
-  const isPublic = isAuthPage || isApiAuth || isAdmin
+  const isAdminLogin = nextUrl.pathname === "/api/admin/login"
+  const isPublic = isAuthPage || isApiAuth || isAdmin || isAdminLogin
 
   if (!isLoggedIn && !isPublic) {
     return NextResponse.redirect(new URL("/login", nextUrl))
