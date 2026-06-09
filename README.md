@@ -1,7 +1,7 @@
 # RestoCompta
 
 SaaS multi-tenant de gestion comptable et opérationnelle pour restaurants et bars.  
-Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB
+Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB.
 
 ---
 
@@ -12,7 +12,7 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB
 | Framework | Next.js 15 App Router (TypeScript) |
 | Authentification | Auth.js v5 beta (JWT, 2h) |
 | ORM | Prisma 5 |
-| Base de données | MariaDB / MySQL |
+| Base de données | MariaDB |
 | Styles | Tailwind CSS + shadcn/ui (Radix) |
 | Validation | Zod v4 |
 | Déploiement | Docker + Traefik sur VPS |
@@ -66,256 +66,17 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB
 
 ---
 
-## Installation locale
-
-### 1. Prérequis
-
-- Node.js 20+
-- MariaDB 10.6+ ou MySQL 8+
-- npm
-
-### 2. Cloner et installer
-
-```bash
-git clone <votre-repo>
-cd restoapp
-npm install
-```
-
-### 3. Variables d'environnement
-
-Créer un fichier `.env` :
-
-```env
-DATABASE_URL="mysql://restoapp:MOT_DE_PASSE@localhost:3306/restoapp"
-AUTH_SECRET="secret-aleatoire-32-chars-minimum"
-NEXTAUTH_URL="http://localhost:3000"
-NODE_ENV="production"
-ADMIN_EMAIL="admin@admin.com"
-ADMIN_PASSWORD="votre-mot-de-passe-admin"
-CRON_SECRET="secret-pour-le-cron-webhook"
-```
-
-Générer des secrets sécurisés :
-
-```bash
-openssl rand -base64 32
-```
-
-### 4. Base de données
-
-```bash
-sudo mysql -u root -p
-```
-
-```sql
-CREATE DATABASE restoapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'restoapp'@'localhost' IDENTIFIED BY 'MOT_DE_PASSE';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
-  ON restoapp.* TO 'restoapp'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
-```
-
-```bash
-npm run db:push
-```
-
-### 5. Lancer en développement
-
-```bash
-npm run dev
-```
-
----
-
-## Déploiement sur VPS (Ubuntu)
-
-### 1. Dépendances système
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc
-nvm install 20 && nvm use 20
-npm install -g pm2
-sudo apt update && sudo apt install mariadb-server nginx -y
-sudo mysql_secure_installation
-```
-
-### 2. Déployer
-
-```bash
-git clone <votre-repo> ~/restoapp
-cd ~/restoapp
-npm install
-cp envexemple .env
-# Éditer .env avec vos valeurs
-npm run build
-```
-
-### 3. PM2
-
-```bash
-pm2 start npm --name restoapp -- start -- -p 5555
-pm2 save
-pm2 startup   # Suivre les instructions affichées
-```
-
-### 4. Nginx
-
-```nginx
-server {
-    listen 80;
-    server_name votre-domaine.com;
-
-    location / {
-        proxy_pass http://localhost:5555;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/restoapp /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl restart nginx
-sudo certbot --nginx -d votre-domaine.com
-```
-
-### 5. Cron webhook (optionnel)
-
-```bash
-# Toutes les heures — le cron envoie uniquement aux restaurants configurés
-# pour ce jour/heure précis
-0 * * * * curl -s -X POST https://votre-domaine.com/api/cron/weekly-report \
-  -H "Authorization: Bearer VOTRE_CRON_SECRET"
-```
-
----
-
-## Structure du projet
-
-```
-restoapp/
-├── prisma/
-│   ├── schema.prisma         # Schéma (22 modèles)
-│   └── seed.ts               # Données de démo
-├── public/
-│   └── logo.png              # Logo de l'application
-├── src/
-│   ├── app/
-│   │   ├── (auth)/login/     # Page de connexion
-│   │   ├── (dashboard)/      # Pages protégées (dont /stock)
-│   │   ├── (admin)/admin/    # Interface super-admin
-│   │   └── api/              # Routes API REST
-│   ├── components/
-│   │   ├── layout/           # Sidebar (notifications + cloche), SearchBar
-│   │   └── ...               # Composants par module
-│   ├── lib/
-│   │   ├── auth.ts           # Config Auth.js v5 + lockout compte
-│   │   ├── prisma.ts         # Client Prisma singleton
-│   │   ├── utils.ts          # Helpers partagés + calculateTax multi-type
-│   │   ├── logger.ts         # Audit logs asynchrones
-│   │   ├── rate-limit.ts     # Rate limiting persisté en base
-│   │   ├── notifications.ts  # Création/check notifications (stock, factures)
-│   │   ├── report-html.ts    # Générateur HTML bilan hebdomadaire
-│   │   ├── webhook-payload.ts# Construction + envoi webhook
-│   │   ├── page-access.ts    # Contrôle d'accès par page/rôle
-│   │   └── page-permissions.ts # Pages configurables pour rôles personnalisés
-│   └── middleware.ts         # Auth + CSRF + rate limit login
-└── next.config.js            # Headers sécurité, packages serveur
-```
-
----
-
-## Sécurité
-
-### Mesures en place
-
-| Menace | Protection |
-|---|---|
-| Bruteforce login | Rate limit 5 req/min par IP (DB) + lockout compte 15 min après 5 échecs |
-| CSRF | Vérification exacte de l'origine (`NEXTAUTH_URL`) sur toutes les mutations |
-| Injection SQL | Prisma uniquement (requêtes préparées, zéro SQL brut) |
-| Accès non autorisé | JWT 2h + vérification `restaurantId` sur chaque requête API |
-| Élévation de privilèges | Rôle vérifié (`OWNER`/`MANAGER`/`EMPLOYEE`) + rôles d'accès personnalisés |
-| SSRF webhook | Blocage IPs privées/localhost + forçage HTTPS sur toutes les URLs webhook |
-| Clickjacking | `X-Frame-Options: DENY` + `frame-ancestors 'none'` (CSP) |
-| MIME sniffing | `X-Content-Type-Options: nosniff` |
-| Transport | `HSTS` max-age 2 ans avec preload |
-| Suppression données | Soft delete sur MenuItem, Invoice, Charge |
-| Audit | Logs de toutes les actions sensibles avec IP, email, métadonnées |
-| Dépendances | Aucun package inutilisé, surface d'attaque minimale |
-
-### Actions à faire en production
-
-```bash
-# 1. AUTH_SECRET unique et aléatoire
-openssl rand -base64 32   # Mettre la valeur dans .env
-
-# 2. ADMIN_PASSWORD fort et unique dans .env
-
-# 3. Firewall
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-```
-
----
-
-## Types d'imposition
-
-Configurables par restaurant depuis le panel Super Admin (création ou modification).
-
-| Type | Tranches |
-|---|---|
-| **Type 1** | $1–$1 000 000 : 35% · Au-delà : 45% |
-| **Type 2** | $0–$100 000 : 0% · $100 001–$1 000 000 : 30% · Au-delà : 40% |
-| **Type 3** (défaut) | $0–$50 000 : 0% · $50 001–$100 000 : 20% · $100 001–$500 000 : 30% · Au-delà : 40% |
-| **Personnalisé** | Tranches libres (min / max / taux %) ajoutables et modifiables dans l'admin |
-
-Le calcul est appliqué automatiquement dans le bilan hebdomadaire et le webhook.
-
----
-
-## Commandes utiles
-
-```bash
-# Développement
-npm run dev
-
-# Production
-npm run build && pm2 restart restoapp
-
-# Base de données
-npm run db:push     # Pousser le schéma Prisma
-npm run db:studio   # Interface Prisma Studio
-
-# PM2
-pm2 status
-pm2 logs restoapp
-pm2 restart restoapp
-```
-
-
----
-
-## Déploiement avec Docker
+## Déploiement
 
 ### Prérequis
 
-- [Docker](https://docs.docker.com/get-docker/) 24+
-- [Docker Compose](https://docs.docker.com/compose/) v2
+- Docker 24+
+- Docker Compose v2
+- Traefik configuré sur le serveur avec un réseau externe `proxy`
 
 ### 1. Variables d'environnement
 
-Créer un fichier `.env` à la racine du projet :
+Créer un fichier `.env` à la racine :
 
 ```env
 DB_ROOT_PASSWORD=rootpassword
@@ -339,20 +100,67 @@ docker compose up -d --build
 ```
 
 Au démarrage, le conteneur :
-1. Applique automatiquement le schéma Prisma (`db push`)
+1. Applique automatiquement le schéma Prisma
 2. Crée le compte SUPERADMIN depuis `ADMIN_EMAIL` / `ADMIN_PASSWORD` s'il n'existe pas encore
 
-### 3. Commandes utiles
+### 3. Traefik
+
+Le `docker-compose.yml` est préconfiguré pour Traefik avec Let's Encrypt. Adapter le label `traefik.http.routers.restoapp.rule` et `NEXTAUTH_URL` à votre domaine.
+
+### 4. Cron webhook (optionnel)
 
 ```bash
-# Voir les logs
-docker compose logs -f
+# Toutes les heures — envoie uniquement aux restaurants configurés pour ce jour/heure
+0 * * * * curl -s -X POST https://votre-domaine.com/api/cron/weekly-report \
+  -H "Authorization: Bearer VOTRE_CRON_SECRET"
+```
+
+---
+
+## Développement local
+
+### Prérequis
+
+- Node.js 20+
+- MariaDB 10.6+ ou MySQL 8+
+
+### Installation
+
+```bash
+git clone <votre-repo>
+cd restoapp
+npm install
+```
+
+Créer un fichier `.env` :
+
+```env
+DATABASE_URL="mysql://restoapp:MOT_DE_PASSE@localhost:3306/restoapp"
+AUTH_SECRET="secret-aleatoire-32-chars-minimum"
+NEXTAUTH_URL="http://localhost:3000"
+ADMIN_EMAIL="admin@admin.com"
+ADMIN_PASSWORD="votre-mot-de-passe-admin"
+CRON_SECRET="secret-pour-le-cron-webhook"
+```
+
+```bash
+npm run db:push
+npm run dev
+```
+
+---
+
+## Commandes Docker
+
+```bash
+# Rebuild et redémarrer
+docker compose up -d --build
 
 # Redémarrer sans rebuild
 docker compose up -d
 
-# Rebuild et redémarrer
-docker compose up -d --build
+# Voir les logs
+docker compose logs -f
 
 # Arrêter
 docker compose down
@@ -361,10 +169,60 @@ docker compose down
 docker compose down -v
 ```
 
-### 4. Traefik
+> Le volume `db_data` persiste la base de données. Ne pas le supprimer sans sauvegarde préalable.
 
-Le `docker-compose.yml` est préconfiguré pour Traefik avec Let's Encrypt. Adapter les labels `traefik.http.routers.restoapp.rule` et `NEXTAUTH_URL` à votre domaine. Le réseau externe `proxy` doit exister sur le serveur.
+---
 
-### Note
+## Structure du projet
 
-Le volume `db_data` persiste la base de données. Ne pas le supprimer sans sauvegarde préalable.
+```
+restoapp/
+├── prisma/
+│   ├── schema.prisma         # Schéma (22 modèles)
+│   └── seed.ts               # Données de démo
+├── src/
+│   ├── app/
+│   │   ├── (auth)/login/     # Page de connexion
+│   │   ├── (dashboard)/      # Pages protégées
+│   │   ├── (admin)/admin/    # Interface super-admin
+│   │   └── api/              # Routes API REST
+│   ├── components/
+│   └── lib/
+│       ├── auth.ts           # Config Auth.js v5 + lockout compte
+│       ├── prisma.ts         # Client Prisma singleton
+│       ├── logger.ts         # Audit logs asynchrones
+│       ├── rate-limit.ts     # Rate limiting persisté en base
+│       ├── notifications.ts  # Alertes stock et factures
+│       ├── report-html.ts    # Générateur HTML bilan hebdomadaire
+│       └── webhook-payload.ts# Construction + envoi webhook
+└── create-admin.mjs          # Init SUPERADMIN au démarrage
+```
+
+---
+
+## Sécurité
+
+| Menace | Protection |
+|---|---|
+| Bruteforce login | Rate limit 5 req/min par IP (DB) + lockout compte 15 min après 5 échecs |
+| CSRF | Vérification exacte de l'origine (`NEXTAUTH_URL`) sur toutes les mutations |
+| Injection SQL | Prisma uniquement (requêtes préparées, zéro SQL brut) |
+| Accès non autorisé | JWT 2h + vérification `restaurantId` sur chaque requête API |
+| Élévation de privilèges | Rôle vérifié (`OWNER`/`MANAGER`/`EMPLOYEE`) + rôles d'accès personnalisés |
+| SSRF webhook | Blocage IPs privées/localhost + forçage HTTPS sur toutes les URLs webhook |
+| Clickjacking | `X-Frame-Options: DENY` + `frame-ancestors 'none'` (CSP) |
+| Transport | `HSTS` max-age 2 ans avec preload |
+| Audit | Logs de toutes les actions sensibles avec IP, email, métadonnées |
+
+---
+
+## Types d'imposition
+
+Configurables par restaurant depuis le panel Super Admin.
+
+| Type | Tranches |
+|---|---|
+| **Type 1** | $1–$1 000 000 : 35% · Au-delà : 45% |
+| **Type 2** | $0–$100 000 : 0% · $100 001–$1 000 000 : 30% · Au-delà : 40% |
+| **Type 3** (défaut) | $0–$50 000 : 0% · $50 001–$100 000 : 20% · $100 001–$500 000 : 30% · Au-delà : 40% |
+| **Personnalisé** | Tranches libres (min / max / taux %) ajoutables dans l'admin |
