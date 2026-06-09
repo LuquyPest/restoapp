@@ -1,22 +1,40 @@
 import AdminLoginForm from "@/components/admin/AdminLoginForm"
+import { ShieldCheck } from "lucide-react"
 
 export default function AdminLoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4"
-      style={{ backgroundImage: "radial-gradient(ellipse 80% 60% at 50% -10%, hsl(262 83% 58% / 0.08), transparent)" }}>
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/20">
-            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: "linear-gradient(135deg, hsl(224 71% 4%) 0%, hsl(222 47% 7%) 50%, hsl(262 40% 8%) 100%)" }}
+    >
+      {/* Ambient glow */}
+      <div className="pointer-events-none fixed top-1/4 left-1/2 -translate-x-1/2 h-[500px] w-[500px] rounded-full bg-red-600/5 blur-3xl" />
+      <div className="pointer-events-none fixed bottom-1/4 left-1/2 -translate-x-1/2 h-64 w-96 rounded-full bg-violet-600/5 blur-3xl" />
+
+      {/* Subtle grid */}
+      <div className="pointer-events-none fixed inset-0 opacity-[0.025]"
+        style={{ backgroundImage: "linear-gradient(to right,white 1px,transparent 1px),linear-gradient(to bottom,white 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
+
+      <div className="relative z-10 w-full max-w-sm animate-fade-in">
+
+        {/* Header */}
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 shadow-lg shadow-red-500/10">
+            <ShieldCheck className="h-7 w-7 text-red-400" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Administration</h1>
-          <p className="text-sm text-muted-foreground mt-1.5">Accès restreint</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Administration</h1>
+          <p className="mt-1.5 text-sm text-white/40">Accès restreint — Super Admin uniquement</p>
         </div>
-        <div className="rounded-xl border bg-card p-6 shadow-xl">
+
+        {/* Card */}
+        <div className="rounded-2xl border border-white/8 bg-white/4 p-7 shadow-2xl backdrop-blur-xl">
           <AdminLoginForm />
         </div>
+
+        {/* Footer */}
+        <p className="mt-6 text-center text-xs text-white/20">
+          RestoCompta — Panel d&apos;administration
+        </p>
       </div>
     </div>
   )

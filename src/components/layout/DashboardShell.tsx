@@ -50,7 +50,7 @@ export default function DashboardShell({
         onMobileClose={() => setMobileOpen(false)}
       />
       <div className="md:ml-64 min-h-screen flex flex-col">
-        <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-8 h-14 flex items-center gap-3">
+        <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 px-4 md:px-8 h-14 flex items-center gap-3 shadow-sm">
           <button
             className="md:hidden shrink-0 h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setMobileOpen(true)}
