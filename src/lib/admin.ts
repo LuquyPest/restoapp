@@ -1,21 +1,23 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
 
-if (!process.env.AUTH_SECRET) {
-  throw new Error("AUTH_SECRET est manquant — définissez-le dans .env")
+function getAdminSecret() {
+  if (!process.env.AUTH_SECRET) {
+    throw new Error("AUTH_SECRET est manquant — définissez-le dans .env")
+  }
+  return new TextEncoder().encode(process.env.AUTH_SECRET)
 }
-const ADMIN_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET)
 
 export async function signAdminToken() {
   return new SignJWT({ role: "superadmin" })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("8h")
-    .sign(ADMIN_SECRET)
+    .sign(getAdminSecret())
 }
 
 export async function verifyAdminToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, ADMIN_SECRET)
+    const { payload } = await jwtVerify(token, getAdminSecret())
     return payload.role === "superadmin"
   } catch {
     return false
