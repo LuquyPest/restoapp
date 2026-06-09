@@ -42,7 +42,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const employee = await prisma.employee.findFirst({ where: { id, restaurantId } })
   if (!employee) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
-  await prisma.user.delete({ where: { id: employee.userId } })
+  try {
+    await prisma.user.delete({ where: { id: employee.userId } })
+  } catch (err: any) {
+    return NextResponse.json({ error: "Impossible de supprimer cet employé. Vérifiez qu'il n'a pas de données liées." }, { status: 409 })
+  }
   await log({
     action: "EMPLOYEE_DELETED",
     userId: session.user.id,

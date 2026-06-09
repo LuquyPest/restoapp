@@ -113,7 +113,20 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
 
   async function deleteEmployee(emp: Employee) {
     if (!confirm(`Supprimer définitivement ${emp.firstName} ${emp.lastName} ?`)) return
-    await fetch(`/api/employees/${emp.id}`, { method: "DELETE" }); router.refresh()
+    setLoading(true); setError("")
+    try {
+      const res = await fetch(`/api/employees/${emp.id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error ?? "Erreur lors de la suppression")
+        return
+      }
+      router.refresh()
+    } catch {
+      setError("Erreur réseau lors de la suppression")
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -158,6 +171,13 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
       )}
 
       <Separator />
+
+      {/* Global error (e.g. delete failure) */}
+      {error && !modal && !deleteGradeId && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-destructive/20 bg-destructive/8 px-3 py-2.5 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Employees grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

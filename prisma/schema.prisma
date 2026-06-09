@@ -204,7 +204,7 @@ model Partner {
 model Order {
   id             String       @id @default(cuid())
   restaurantId   String
-  employeeId     String
+  employeeId     String?
   partnerId      String?
   total                 Float
   discountAmount        Float           @default(0)
@@ -218,7 +218,7 @@ model Order {
   updatedAt      DateTime     @updatedAt
   loyaltyCardId  String?
   lines          OrderLine[]
-  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employee       Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   loyaltyCard    LoyaltyCard? @relation(fields: [loyaltyCardId], references: [id])
   partner        Partner?     @relation(fields: [partnerId], references: [id])
   restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -303,7 +303,7 @@ model Invoice {
 model Payroll {
   id           String     @id @default(cuid())
   restaurantId String
-  employeeId   String
+  employeeId   String?
   weekNumber   Int
   year         Int
   revenue      Float
@@ -317,7 +317,7 @@ model Payroll {
   isPaid       Boolean    @default(false)
   paidAt       DateTime?
   createdAt    DateTime   @default(now())
-  employee     Employee   @relation(fields: [employeeId], references: [id])
+  employee     Employee?  @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@index([employeeId], map: "payrolls_employeeId_fkey")
