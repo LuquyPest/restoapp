@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { UserPlus, UserCheck, UserX, Pencil, Award, CreditCard, Trash2, Key, Phone, Settings } from "lucide-react"
+import { UserPlus, UserCheck, UserX, Pencil, Award, CreditCard, Trash2, Key, Phone, Settings, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -35,6 +35,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [deleteGradeId, setDeleteGradeId] = useState<string | null>(null)
+  const [empToDelete, setEmpToDelete] = useState<Employee | null>(null)
 
   async function createEmployee() {
     setLoading(true); setError("")
@@ -111,19 +112,22 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
     finally { setLoading(false) }
   }
 
-  async function deleteEmployee(emp: Employee) {
-    if (!confirm(`Supprimer définitivement ${emp.firstName} ${emp.lastName} ?`)) return
+  async function deleteEmployee() {
+    if (!empToDelete) return
     setLoading(true); setError("")
     try {
-      const res = await fetch(`/api/employees/${emp.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/employees/${empToDelete.id}`, { method: "DELETE" })
       if (!res.ok) {
         const data = await res.json()
         setError(data.error ?? "Erreur lors de la suppression")
+        setEmpToDelete(null)
         return
       }
+      setEmpToDelete(null)
       router.refresh()
     } catch {
       setError("Erreur réseau lors de la suppression")
+      setEmpToDelete(null)
     } finally {
       setLoading(false)
     }
@@ -209,7 +213,7 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" }); setError(""); setModal("editEmp") }}><Settings className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd") }}><Key className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => deleteEmployee(emp)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setError(""); setEmpToDelete(emp) }}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </CardContent>
           </Card>
@@ -317,6 +321,42 @@ export default function EmployeesClient({ employees, grades, restaurantId }: Pro
               <Button variant="outline" className="flex-1" onClick={() => setDeleteGradeId(null)}>Annuler</Button>
               <Button variant="destructive" className="flex-1" onClick={deleteGrade} disabled={loading}>
                 {loading ? "Suppression..." : "Supprimer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation suppression employé */}
+      <Dialog open={!!empToDelete} onOpenChange={v => !v && setEmpToDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-4.5 w-4.5 text-destructive" />
+              </span>
+              Supprimer l&apos;employé ?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-destructive/15 bg-destructive/5 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">
+                {empToDelete?.firstName} {empToDelete?.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{empToDelete?.user.email}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Le compte sera supprimé définitivement. Les commandes et fiches de paie associées sont conservées.
+            </p>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setEmpToDelete(null)} disabled={loading}>
+                Annuler
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={deleteEmployee} disabled={loading}>
+                {loading ? "Suppression…" : "Supprimer définitivement"}
               </Button>
             </div>
           </div>
