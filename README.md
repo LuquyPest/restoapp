@@ -15,7 +15,7 @@ Développé avec Next.js 15, Auth.js v5, Prisma et MariaDB
 | Base de données | MariaDB / MySQL |
 | Styles | Tailwind CSS + shadcn/ui (Radix) |
 | Validation | Zod v4 |
-| Déploiement | PM2 sur VPS Ubuntu + Nginx + Let's Encrypt |
+| Déploiement | Docker + Traefik sur VPS |
 
 ---
 
@@ -84,11 +84,7 @@ npm install
 
 ### 3. Variables d'environnement
 
-```bash
-cp envexemple .env
-```
-
-Éditer `.env` :
+Créer un fichier `.env` :
 
 ```env
 DATABASE_URL="mysql://restoapp:MOT_DE_PASSE@localhost:3306/restoapp"
@@ -319,11 +315,7 @@ pm2 restart restoapp
 
 ### 1. Variables d'environnement
 
-```bash
-cp .env.example .env
-```
-
-Éditer `.env` — au minimum changer les mots de passe et secrets :
+Créer un fichier `.env` à la racine du projet :
 
 ```env
 DB_ROOT_PASSWORD=rootpassword
@@ -332,7 +324,7 @@ DB_USER=restoapp
 DB_PASSWORD=restopassword
 
 AUTH_SECRET=           # openssl rand -base64 32
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://votre-domaine.com
 AUTH_TRUST_HOST=true
 
 ADMIN_EMAIL=admin@example.com
@@ -346,16 +338,21 @@ CRON_SECRET=           # openssl rand -base64 32
 docker compose up -d --build
 ```
 
-Le schéma Prisma est automatiquement appliqué au démarrage du conteneur. L'application est disponible sur [http://localhost:3000](http://localhost:3000).
+Au démarrage, le conteneur :
+1. Applique automatiquement le schéma Prisma (`db push`)
+2. Crée le compte SUPERADMIN depuis `ADMIN_EMAIL` / `ADMIN_PASSWORD` s'il n'existe pas encore
 
 ### 3. Commandes utiles
 
 ```bash
 # Voir les logs
-docker compose logs -f app
+docker compose logs -f
 
-# Appliquer manuellement le schéma (si besoin)
-docker compose exec app npx prisma db push
+# Redémarrer sans rebuild
+docker compose up -d
+
+# Rebuild et redémarrer
+docker compose up -d --build
 
 # Arrêter
 docker compose down
@@ -364,10 +361,10 @@ docker compose down
 docker compose down -v
 ```
 
-### 4. Derrière un reverse proxy (Nginx / Traefik)
+### 4. Traefik
 
-Retirer la section `ports` dans `docker-compose.yml` et connecter votre reverse proxy au service `app` sur le port `3000`. Penser à mettre `NEXTAUTH_URL` à l'URL publique du site.
+Le `docker-compose.yml` est préconfiguré pour Traefik avec Let's Encrypt. Adapter les labels `traefik.http.routers.restoapp.rule` et `NEXTAUTH_URL` à votre domaine. Le réseau externe `proxy` doit exister sur le serveur.
 
 ### Note
 
-Le volume `db_data` persiste la base de données. Ne pas supprimer ce volume sans avoir fait une sauvegarde.
+Le volume `db_data` persiste la base de données. Ne pas le supprimer sans sauvegarde préalable.

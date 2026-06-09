@@ -6,6 +6,16 @@ import { NotebookPen, Plus, Wrench, Zap } from "lucide-react"
 
 const NOTES = [
   {
+    version: "1.7.0",
+    date: "9 juin 2026",
+    entries: [
+      { type: "fix",  text: "Build Docker : AUTH_SECRET vérifié à l'appel et non au chargement du module — plus de crash lors de la collecte de pages Next.js" },
+      { type: "fix",  text: "Prisma sur Alpine : installation d'OpenSSL, ajout du binaryTarget linux-musl-openssl-3.0.x et correction du chemin du CLI (symlink .wasm)" },
+      { type: "fix",  text: "Connexion admin : /api/admin/login désormais accessible sans session NextAuth (plus de redirection silencieuse vers /login)" },
+      { type: "feat", text: "Création automatique du SUPERADMIN au démarrage du conteneur via les variables ADMIN_EMAIL et ADMIN_PASSWORD" },
+    ],
+  },
+  {
     version: "1.6.0",
     date: "21 mai 2026",
     entries: [
