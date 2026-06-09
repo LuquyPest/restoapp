@@ -9,6 +9,8 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - internal
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -19,8 +21,15 @@ services:
   app:
     build: .
     restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
+    networks:
+      - traefik_public
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.restoapp.rule=Host(`compta2.daryu.xyz`)"
+      - "traefik.http.routers.restoapp.entrypoints=websecure"
+      - "traefik.http.routers.restoapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.restoapp.loadbalancer.server.port=3000"
     environment:
       DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@db:3306/${DB_NAME}
       AUTH_SECRET: ${AUTH_SECRET}
@@ -33,6 +42,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+networks:
+  traefik_public:
+    external: true
+  internal:
+    driver: bridge
 
 volumes:
   db_data:
