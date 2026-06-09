@@ -22,7 +22,7 @@ services:
     build: .
     restart: unless-stopped
     networks:
-      - traefik_public
+      - proxy
       - internal
     labels:
       - "traefik.enable=true"
@@ -44,7 +44,7 @@ services:
         condition: service_healthy
 
 networks:
-  traefik_public:
+  proxy:
     external: true
   internal:
     driver: bridge
