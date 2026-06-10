@@ -6,7 +6,7 @@ import { log } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? req.headers.get("x-real-ip") ?? "unknown"
+  const ip = req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ?? "unknown"
   if (!await checkRateLimit(`admin-login:${ip}`, 5, 60_000)) {
     return NextResponse.json({ error: "Trop de tentatives, réessayez dans une minute" }, { status: 429 })
   }
