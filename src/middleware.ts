@@ -17,11 +17,11 @@ export default auth(async (req) => {
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth")
   const isApiAdmin = nextUrl.pathname.startsWith("/api/admin")
 
-  // CSRF : rejeter les mutations venant d'une origine non autorisée
+  // CSRF : rejeter les mutations sans Origin ou avec une origine non autorisée
   if (["POST", "PATCH", "DELETE", "PUT"].includes(method) && !isApiAuth) {
     const origin = req.headers.get("origin")
     const allowedOrigin = process.env.NEXTAUTH_URL?.replace(/\/$/, "")
-    if (origin && allowedOrigin && origin !== allowedOrigin) {
+    if (!origin || !allowedOrigin || origin !== allowedOrigin) {
       return new NextResponse(JSON.stringify({ error: "Origine non autorisée" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
