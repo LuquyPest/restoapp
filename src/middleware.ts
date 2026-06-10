@@ -11,7 +11,8 @@ export default auth(async (req) => {
   const isLoggedIn = !!session
   const method = req.method ?? "GET"
 
-  const isAdmin = nextUrl.pathname.startsWith("/admin")
+  const isAdminPage = nextUrl.pathname.startsWith("/admin")
+  const isAdminLoginPage = nextUrl.pathname === "/admin/login"
   const isAuthPage = nextUrl.pathname.startsWith("/login")
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth")
   const isApiAdmin = nextUrl.pathname.startsWith("/api/admin")
@@ -62,10 +63,24 @@ export default auth(async (req) => {
   }
 
   const isAdminLogin = nextUrl.pathname === "/api/admin/login"
-  const isPublic = isAuthPage || isApiAuth || isAdmin || isAdminLogin
+  const isPublic = isAuthPage || isApiAuth || isAdminLoginPage || isAdminLogin
 
-  if (!isLoggedIn && !isPublic) {
+  if (!isLoggedIn && !isPublic && !isAdminPage) {
     return NextResponse.redirect(new URL("/login", nextUrl))
+  }
+
+  // Bloquer les pages /admin/* (hors /admin/login) sans cookie admin valide
+  if (isAdminPage && !isAdminLoginPage) {
+    const token = req.cookies.get("admin_token")?.value
+    if (!token) {
+      return NextResponse.redirect(new URL("/admin/login", nextUrl))
+    }
+    try {
+      const { payload } = await jwtVerify(token, ADMIN_SECRET)
+      if (payload.role !== "superadmin") throw new Error()
+    } catch {
+      return NextResponse.redirect(new URL("/admin/login", nextUrl))
+    }
   }
 
   if (isLoggedIn && isAuthPage) {
