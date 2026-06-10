@@ -4,7 +4,8 @@ const nextConfig = {
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "**" },
+      { protocol: "https", hostname: "restoapp.daryu.xyz" },
+      { protocol: "https", hostname: "compta.daryu.xyz" },
     ],
   },
   async headers() {
