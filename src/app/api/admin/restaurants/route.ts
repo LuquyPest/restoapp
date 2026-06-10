@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma"
 import { log, getIp } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { randomBytes } from "crypto"
 
 const taxBracketSchema = z.object({ min: z.number().min(0), max: z.number().min(0).optional(), rate: z.number().min(0).max(100) })
 
 const schema = z.object({
   name: z.string().min(1).max(50),
   ownerName: z.string().min(1),
-  ownerPassword: z.string().min(6),
   currency: z.string().default("$"),
   taxType: z.enum(["TYPE1", "TYPE2", "TYPE3", "CUSTOM"]).default("TYPE3"),
   taxBrackets: z.array(taxBracketSchema).optional(),
@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const { name, ownerName, ownerPassword, currency, taxType, taxBrackets } = parsed.data
+  const { name, ownerName, currency, taxType, taxBrackets } = parsed.data
+  const ownerPassword = randomBytes(12).toString("base64url")
   const slug = slugifyRestaurantName(name)
 
   const ownerSlug = ownerName
@@ -90,5 +91,5 @@ export async function POST(req: NextRequest) {
     ip: getIp(req.headers),
     metadata: { restaurantId: restaurant.id, restaurantName: name, ownerEmail: email },
   })
-  return NextResponse.json({ restaurant, email, user: { id: user.id, email, name: ownerName } }, { status: 201 })
+  return NextResponse.json({ restaurant, email, password: ownerPassword, user: { id: user.id, email, name: ownerName } }, { status: 201 })
 }

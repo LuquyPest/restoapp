@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, Eye, EyeOff, ClipboardList, Pencil, X } from "lucide-react"
+import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, ClipboardList, Pencil, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -100,9 +100,9 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
   const [error, setError] = useState("")
   const [createdInfo, setCreatedInfo] = useState<{ email: string; password: string; restaurant: string } | null>(null)
   const [copied, setCopied] = useState(false)
-  const [showPwd, setShowPwd] = useState(false)
 
-  const [form, setForm] = useState({ name: "", ownerName: "", ownerPassword: "", currency: "$", taxType: "TYPE3" })
+
+  const [form, setForm] = useState({ name: "", ownerName: "", currency: "$", taxType: "TYPE3" })
   const [createBrackets, setCreateBrackets] = useState<TaxBracket[]>([])
 
   const [editForm, setEditForm] = useState({ taxType: "TYPE3", taxBrackets: [] as TaxBracket[] })
@@ -130,8 +130,8 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erreur")
-      setCreatedInfo({ email: data.email, password: form.ownerPassword, restaurant: data.restaurant.name })
-      setForm({ name: "", ownerName: "", ownerPassword: "", currency: "$", taxType: "TYPE3" })
+      setCreatedInfo({ email: data.email, password: data.password, restaurant: data.restaurant.name })
+      setForm({ name: "", ownerName: "", currency: "$", taxType: "TYPE3" })
       setCreateBrackets([])
       setModal(false)
       const listRes = await fetch("/api/admin/restaurants")
@@ -307,14 +307,8 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
               <Label>Nom du patron</Label>
               <Input placeholder="Vittoria Fonelli" value={form.ownerName} onChange={e => setForm({ ...form, ownerName: e.target.value })} />
             </div>
-            <div className="space-y-1.5">
-              <Label>Mot de passe du patron</Label>
-              <div className="relative">
-                <Input type={showPwd ? "text" : "password"} className="pr-10" placeholder="Min. 6 caractères" value={form.ownerPassword} onChange={e => setForm({ ...form, ownerPassword: e.target.value })} />
-                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-600 dark:text-blue-400">
+              Le mot de passe est généré automatiquement et affiché une seule fois après création.
             </div>
             <div className="space-y-1.5">
               <Label>Devise</Label>
@@ -332,7 +326,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
             {error && <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</div>}
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
-              <Button className="flex-1" onClick={create} disabled={loading || !form.name || !form.ownerName || form.ownerPassword.length < 6}>
+              <Button className="flex-1" onClick={create} disabled={loading || !form.name || !form.ownerName}>
                 {loading ? "Création..." : "Créer"}
               </Button>
             </div>
