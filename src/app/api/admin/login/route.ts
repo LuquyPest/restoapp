@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { email } })
 
-  if (!user || user.role !== "SUPERADMIN") {
+  if (!user || user.role !== "SUPERADMIN" || !user.passwordHash) {
     await log({ action: "ADMIN_LOGIN_FAILED", userEmail: email, ip })
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 })
   }
