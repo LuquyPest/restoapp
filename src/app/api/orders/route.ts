@@ -4,6 +4,17 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { getISOWeek } from "@/lib/utils"
 import { upsertNotification } from "@/lib/notifications"
+import { promises as dns } from "dns"
+
+const PRIVATE_IP = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|::1|fc00:|fd)/i
+
+async function isSafeToFetch(url: string): Promise<boolean> {
+  try {
+    const { hostname } = new URL(url)
+    const addrs = await dns.resolve4(hostname).catch(async () => dns.resolve6(hostname))
+    return addrs.every((a: string) => !PRIVATE_IP.test(a))
+  } catch { return false }
+}
 
 const createSchema = z.object({
   lines: z.array(z.object({
@@ -158,6 +169,8 @@ export async function POST(req: NextRequest) {
         ))
 
         const alertUrl = restaurant.stockAlertWebhookUrl
+        // Vérification DNS au moment du fetch pour contrer le DNS rebinding
+        if (!await isSafeToFetch(alertUrl)) break
         const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
         const payload = isDiscord
           ? {
