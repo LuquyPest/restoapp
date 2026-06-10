@@ -170,26 +170,27 @@ export async function POST(req: NextRequest) {
 
         const alertUrl = restaurant.stockAlertWebhookUrl
         // Vérification DNS au moment du fetch pour contrer le DNS rebinding
-        if (!await isSafeToFetch(alertUrl)) break
-        const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
-        const payload = isDiscord
-          ? {
-              embeds: [{
-                title: `⚠️ Stock bas — ${restaurant.name}`,
-                color: 0xf59e0b,
-                fields: lowStock.map(i => ({ name: i.name, value: `Stock: **${i.quantity}** (seuil: ${i.minQuantity})`, inline: true })),
-                footer: { text: "RestoCompta · Alerte stock" },
-                timestamp: new Date().toISOString(),
-              }],
-            }
-          : { type: "LOW_STOCK", restaurant: restaurant.name, ingredients: lowStock.map(i => ({ name: i.name, quantity: i.quantity, minQuantity: i.minQuantity })) }
+        if (await isSafeToFetch(alertUrl)) {
+          const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
+          const payload = isDiscord
+            ? {
+                embeds: [{
+                  title: `⚠️ Stock bas — ${restaurant.name}`,
+                  color: 0xf59e0b,
+                  fields: lowStock.map(i => ({ name: i.name, value: `Stock: **${i.quantity}** (seuil: ${i.minQuantity})`, inline: true })),
+                  footer: { text: "RestoCompta · Alerte stock" },
+                  timestamp: new Date().toISOString(),
+                }],
+              }
+            : { type: "LOW_STOCK", restaurant: restaurant.name, ingredients: lowStock.map(i => ({ name: i.name, quantity: i.quantity, minQuantity: i.minQuantity })) }
 
-        fetch(alertUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(10_000),
-        }).catch(() => {})
+          fetch(alertUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(10_000),
+          }).catch(() => {})
+        }
       }
     }
   }
