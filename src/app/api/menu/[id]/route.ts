@@ -35,6 +35,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { recipeLines, ...fields } = parsed.data
 
   if (recipeLines !== undefined) {
+    if (recipeLines.length > 0) {
+      const ingredientIds = recipeLines.map(l => l.ingredientId)
+      const validIngredients = await prisma.ingredient.findMany({
+        where: { id: { in: ingredientIds }, restaurantId },
+        select: { id: true },
+      })
+      if (validIngredients.length !== ingredientIds.length) {
+        return NextResponse.json({ error: "Ingrédient invalide" }, { status: 400 })
+      }
+    }
     await prisma.recipeLine.deleteMany({ where: { menuItemId: id } })
     if (recipeLines.length > 0) {
       await prisma.recipeLine.createMany({
