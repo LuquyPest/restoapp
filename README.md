@@ -84,7 +84,7 @@ DB_NAME=restoapp
 DB_USER=restoapp
 DB_PASSWORD=restopassword
 
-AUTH_SECRET=           # openssl rand -base64 32
+AUTH_SECRET=
 NEXTAUTH_URL=https://votre-domaine.com
 AUTH_TRUST_HOST=true
 
