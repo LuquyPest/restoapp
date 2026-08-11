@@ -18,7 +18,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN apk add --no-cache openssl \
  && addgroup --system --gid 1001 nodejs \
- && adduser  --system --uid 1001 nextjs
+ && adduser  --system --uid 1001 nextjs \
+ && mkdir -p /app/uploads \
+ && chown -R nextjs:nodejs /app/uploads
 
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh

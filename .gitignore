@@ -18,6 +18,9 @@ build/
 # prisma
 prisma/dev.db
 
+# uploads (dev local — en prod, volume Docker monté sur UPLOADS_DIR)
+/uploads
+
 # misc
 .DS_Store
 *.pem

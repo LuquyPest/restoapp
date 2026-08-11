@@ -40,6 +40,11 @@ model Company {
   suppliers            Supplier[]
   users                User[]
   weeklyReports        WeeklyReport[]
+  employeeMessages     EmployeeMessage[]
+  employeeDocuments    EmployeeDocument[]
+  employeeWarnings     EmployeeWarning[]
+  employeeLeaves       EmployeeLeave[]
+  employeeEvents       EmployeeEvent[]
 
   @@map("restaurants")
 }
@@ -144,27 +149,132 @@ model VerificationToken {
 }
 
 model Employee {
-  id            String     @id @default(cuid())
-  userId        String     @unique
-  companyId     String     @map("restaurantId")
-  gradeId       String
-  firstName     String
-  lastName      String
-  phone         String?
-  accountNumber String?
-  hiredAt       DateTime   @default(now())
-  isActive      Boolean    @default(true)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  grade         Grade      @relation(fields: [gradeId], references: [id])
-  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders        Order[]
-  payrolls      Payroll[]
+  id               String     @id @default(cuid())
+  userId           String     @unique
+  companyId        String     @map("restaurantId")
+  gradeId          String
+  firstName        String
+  lastName         String
+  phone            String?
+  accountNumber    String?
+  hiredAt          DateTime   @default(now())
+  isActive         Boolean    @default(true)
+  paidLeaveBalance Float?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  grade            Grade      @relation(fields: [gradeId], references: [id])
+  company          Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders           Order[]
+  payrolls         Payroll[]
+  messages         EmployeeMessage[]
+  documents        EmployeeDocument[]
+  warnings         EmployeeWarning[]
+  leaves           EmployeeLeave[]
+  events           EmployeeEvent[]
 
   @@index([gradeId], map: "employees_gradeId_fkey")
   @@index([companyId], map: "employees_restaurantId_fkey")
   @@map("employees")
+}
+
+model EmployeeMessage {
+  id               String    @id @default(cuid())
+  companyId        String
+  employeeId       String
+  authorUserId     String
+  authorRole       UserRole
+  body             String    @db.Text
+  readByEmployeeAt DateTime?
+  readByManagerAt  DateTime?
+  createdAt        DateTime  @default(now())
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@index([companyId])
+  @@map("employee_messages")
+}
+
+model EmployeeDocument {
+  id               String       @id @default(cuid())
+  companyId        String
+  employeeId       String
+  title            String
+  kind             DocumentKind
+  filePath         String?
+  fileMimeType     String?
+  fileSize         Int?
+  externalUrl      String?      @db.Text
+  expiresAt        DateTime?
+  uploadedByUserId String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  company          Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee         Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([companyId, expiresAt])
+  @@map("employee_documents")
+}
+
+model EmployeeWarning {
+  id           String   @id @default(cuid())
+  companyId    String
+  employeeId   String
+  authorUserId String
+  title        String
+  description  String   @db.Text
+  occurredAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@map("employee_warnings")
+}
+
+model EmployeeLeave {
+  id                String      @id @default(cuid())
+  companyId         String
+  employeeId        String
+  type              LeaveType
+  startDate         DateTime
+  endDate           DateTime
+  daysCount         Float
+  reason            String?     @db.Text
+  status            LeaveStatus @default(PENDING)
+  requestedByUserId String
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  decisionNote      String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee          Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, status])
+  @@index([companyId, status])
+  @@map("employee_leaves")
+}
+
+model EmployeeEvent {
+  id          String            @id @default(cuid())
+  companyId   String
+  employeeId  String
+  type        EmployeeEventType
+  title       String
+  description String?           @db.Text
+  actorUserId String?
+  metadata    String?           @db.Text
+  createdAt   DateTime          @default(now())
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@index([companyId])
+  @@map("employee_events")
 }
 
 model MenuItem {
@@ -474,6 +584,36 @@ enum TaxType {
   TYPE2
   TYPE3
   CUSTOM
+}
+
+enum DocumentKind {
+  FILE
+  LINK
+}
+
+enum LeaveType {
+  PAID
+  UNPAID
+  SICK
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EmployeeEventType {
+  HIRED
+  GRADE_CHANGED
+  STATUS_CHANGED
+  WARNING_ADDED
+  DOCUMENT_ADDED
+  DOCUMENT_REMOVED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
 }
 
 enum CompanyType {
