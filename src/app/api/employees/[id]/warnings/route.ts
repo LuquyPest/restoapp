@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   })
   await upsertUserNotification({
     companyId: session.user.companyId!, type: "WARNING_ADDED", entitySlug: `warning:${warning.id}`, recipientUserId: employee.userId,
-    title: "Nouvel avertissement", body: warning.title,
+    title: "Nouvel avertissement", body: warning.title, link: `/self-service?tab=warnings`,
   })
   return NextResponse.json(warning, { status: 201 })
 }

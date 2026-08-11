@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Award, CreditCard, Phone, Mail, Key, UserCheck, UserX, Calendar } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -40,8 +40,11 @@ type TabKey = typeof TABS[number]["key"]
 
 export default function EmployeeDetailClient({ employee, grades, canManage, isOwner, viewerUserId, events = [] }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const visibleTabs = canManage ? TABS : TABS.filter(t => t.key !== "timeline")
-  const [tab, setTab] = useState<TabKey>("info")
+  const requestedTab = searchParams.get("tab")
+  const initialTab = visibleTabs.some(t => t.key === requestedTab) ? (requestedTab as TabKey) : "info"
+  const [tab, setTab] = useState<TabKey>(initialTab)
   const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "", paidLeaveBalance: employee.paidLeaveBalance !== null ? String(employee.paidLeaveBalance) : "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")

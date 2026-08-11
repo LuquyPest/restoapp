@@ -8,14 +8,16 @@ export async function upsertNotification(params: {
   title: string
   body: string
   recipientUserId?: string
+  link?: string
 }) {
   await prisma.notification.upsert({
     where: { companyId_type_entityId: { companyId: params.companyId, type: params.type, entityId: params.entityId } },
     create: {
       companyId: params.companyId, type: params.type, entityId: params.entityId,
       title: params.title, body: params.body, recipientUserId: params.recipientUserId ?? null,
+      link: params.link ?? null,
     },
-    update: { isRead: false, title: params.title, body: params.body, createdAt: new Date() },
+    update: { isRead: false, title: params.title, body: params.body, link: params.link ?? null, createdAt: new Date() },
   })
 }
 
@@ -29,6 +31,7 @@ export async function upsertUserNotification(params: {
   recipientUserId: string
   title: string
   body: string
+  link?: string
 }) {
   await upsertNotification({
     companyId: params.companyId,
@@ -37,6 +40,7 @@ export async function upsertUserNotification(params: {
     title: params.title,
     body: params.body,
     recipientUserId: params.recipientUserId,
+    link: params.link,
   })
 }
 
@@ -63,6 +67,7 @@ export async function checkAndCreateDocumentExpiryNotifications(companyId: strin
         entityId: doc.id,
         title: "Document bientôt expiré",
         body: `${doc.title} — ${doc.employee.firstName} ${doc.employee.lastName} · expire le ${formatDate(doc.expiresAt!)}`,
+        link: `/employees/${doc.employeeId}?tab=documents`,
       })
     )
   )
@@ -82,6 +87,7 @@ export async function checkAndCreateInvoiceNotifications(companyId: string) {
         entityId: inv.id,
         title: "Facture en retard",
         body: `Facture ${inv.reference ?? inv.id.slice(-6)} — ${inv.supplier.name} · ${inv.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}`,
+        link: "/invoices",
       })
     )
   )

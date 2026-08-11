@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, Truck,
@@ -65,12 +65,13 @@ function getNavGroups(companyType: CompanyType) {
   ]
 }
 
-interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: Date | string }
+interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: Date | string; link?: string | null }
 interface Props { userRole: string; companyName: string; companyType: CompanyType; userName: string; companyLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void; hasEmployeeRecord?: boolean }
 
 export default function Sidebar({ userRole, companyName, companyType, userName, companyLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose, hasEmployeeRecord = false }: Props) {
   const navGroups = getNavGroups(companyType)
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -83,6 +84,12 @@ export default function Sidebar({ userRole, companyName, companyType, userName, 
   async function dismissOne(id: string) {
     await fetch(`/api/notifications/${id}`, { method: "DELETE" })
     setNotifications(prev => prev.filter(n => n.id !== id))
+  }
+
+  function openNotification(n: NotificationItem) {
+    dismissOne(n.id)
+    setNotifOpen(false)
+    if (n.link) router.push(n.link)
   }
 
   async function dismissAll() {
@@ -223,13 +230,22 @@ export default function Sidebar({ userRole, companyName, companyType, userName, 
                       <p className="text-xs">Aucune notification</p>
                     </div>
                   ) : notifications.map(n => (
-                    <div key={n.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/40 border-b last:border-0 group">
+                    <div
+                      key={n.id}
+                      role={n.link ? "button" : undefined}
+                      tabIndex={n.link ? 0 : undefined}
+                      onClick={n.link ? () => openNotification(n) : undefined}
+                      className={cn(
+                        "flex items-start gap-2.5 px-3 py-2.5 border-b last:border-0 group",
+                        n.link ? "cursor-pointer hover:bg-muted/60" : "hover:bg-muted/40"
+                      )}
+                    >
                       <AlertTriangle className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", n.type === "OVERDUE_INVOICE" ? "text-destructive" : "text-amber-500")} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold">{n.title}</p>
                         <p className="text-xs text-muted-foreground truncate">{n.body}</p>
                       </div>
-                      <button onClick={() => dismissOne(n.id)} className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-foreground">
+                      <button onClick={(e) => { e.stopPropagation(); dismissOne(n.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-foreground">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>

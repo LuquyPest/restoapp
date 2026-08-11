@@ -84,6 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         companyId, type: "LEAVE_REQUESTED", entitySlug: `leave:${leave.id}`, recipientUserId: managerId,
         title: "Nouvelle demande de congé",
         body: `${employee.firstName} ${employee.lastName} — ${daysCount} j à partir du ${startDate.toLocaleDateString("fr-FR")}`,
+        link: `/employees/${id}?tab=leaves`,
       })
     ))
   } else {
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       companyId, type: "LEAVE_DECIDED", entitySlug: `leave:${leave.id}`, recipientUserId: employee.userId,
       title: status === "APPROVED" ? "Congé approuvé" : "Congé refusé",
       body: `${daysCount} j à partir du ${startDate.toLocaleDateString("fr-FR")}`,
+      link: `/self-service?tab=leaves`,
     })
   }
 

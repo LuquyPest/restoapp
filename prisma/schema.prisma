@@ -512,6 +512,7 @@ model Notification {
   body            String
   entityId        String?
   recipientUserId String?
+  link            String?    @db.Text
   isRead          Boolean    @default(false)
   createdAt       DateTime   @default(now())
   company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)

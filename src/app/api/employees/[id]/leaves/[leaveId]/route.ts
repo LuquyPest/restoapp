@@ -57,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     companyId, type: "LEAVE_DECIDED", entitySlug: `leave:${leaveId}`, recipientUserId: employee.userId,
     title: parsed.data.status === "APPROVED" ? "Congé approuvé" : "Congé refusé",
     body: `${leave.daysCount} j à partir du ${leave.startDate.toLocaleDateString("fr-FR")}`,
+    link: `/self-service?tab=leaves`,
   })
 
   return NextResponse.json(updated)

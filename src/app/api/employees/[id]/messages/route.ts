@@ -56,12 +56,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       upsertUserNotification({
         companyId, type: "NEW_MESSAGE", entitySlug: `msg:${id}`, recipientUserId: managerId,
         title: "Nouveau message", body: `${employee.firstName} ${employee.lastName} vous a écrit`,
+        link: `/employees/${id}?tab=messages`,
       })
     ))
   } else {
     await upsertUserNotification({
       companyId, type: "NEW_MESSAGE", entitySlug: `msg:${id}`, recipientUserId: employee.userId,
       title: "Nouveau message", body: `${session.user.name ?? "Votre manager"} vous a écrit`,
+      link: `/self-service?tab=messages`,
     })
   }
 
