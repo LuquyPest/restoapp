@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
 import { deleteEmployeeFile } from "@/lib/employee-storage"
+import { logEmployeeEvent } from "@/lib/employee-events"
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
   const session = await auth()
@@ -17,6 +18,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   await prisma.employeeDocument.delete({ where: { id: docId } })
   if (document.filePath) await deleteEmployeeFile(document.filePath)
+  await logEmployeeEvent({
+    companyId: session.user.companyId!, employeeId: id, type: "DOCUMENT_REMOVED",
+    title: `Document supprimé : ${document.title}`, actorUserId: session.user.id,
+  })
 
   return NextResponse.json({ ok: true })
 }

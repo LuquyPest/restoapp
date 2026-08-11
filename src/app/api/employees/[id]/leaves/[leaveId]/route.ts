@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
+import { logEmployeeEvent } from "@/lib/employee-events"
 import { z } from "zod"
 
 const decideSchema = z.object({
@@ -38,6 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (parsed.data.status === "APPROVED" && leave.type === "PAID" && employee.paidLeaveBalance !== null) {
     await prisma.employee.update({ where: { id }, data: { paidLeaveBalance: { decrement: leave.daysCount } } })
   }
+
+  await logEmployeeEvent({
+    companyId: session.user.companyId!, employeeId: id,
+    type: parsed.data.status === "APPROVED" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+    title: `${parsed.data.status === "APPROVED" ? "Congé approuvé" : "Congé refusé"} — ${leave.daysCount} j`,
+    actorUserId: session.user.id,
+  })
 
   return NextResponse.json(updated)
 }

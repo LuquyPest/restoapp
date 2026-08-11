@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { log, getIp } from "@/lib/logger"
+import { logEmployeeEvent } from "@/lib/employee-events"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -21,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-  const employee = await prisma.employee.findFirst({ where: { id, companyId } })
+  const employee = await prisma.employee.findFirst({ where: { id, companyId }, include: { grade: true } })
   if (!employee) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.employee.update({
     where: { id },
@@ -33,6 +34,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(parsed.data.paidLeaveBalance !== undefined && { paidLeaveBalance: parsed.data.paidLeaveBalance }),
     },
   })
+
+  if (parsed.data.gradeId && parsed.data.gradeId !== employee.gradeId) {
+    const newGrade = await prisma.grade.findUnique({ where: { id: parsed.data.gradeId } })
+    await logEmployeeEvent({
+      companyId: companyId!, employeeId: id, type: "GRADE_CHANGED",
+      title: "Changement de grade",
+      description: `${employee.grade.name} → ${newGrade?.name ?? "?"}`,
+      actorUserId: session.user.id,
+    })
+  }
+  if (parsed.data.isActive !== undefined && parsed.data.isActive !== employee.isActive) {
+    await logEmployeeEvent({
+      companyId: companyId!, employeeId: id, type: "STATUS_CHANGED",
+      title: parsed.data.isActive ? "Compte réactivé" : "Compte désactivé",
+      actorUserId: session.user.id,
+    })
+  }
+
   return NextResponse.json(updated)
 }
 

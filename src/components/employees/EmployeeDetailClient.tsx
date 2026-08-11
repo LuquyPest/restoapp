@@ -17,6 +17,7 @@ import EmployeeMessagesTab from "./EmployeeMessagesTab"
 import EmployeeDocumentsTab from "./EmployeeDocumentsTab"
 import EmployeeLeavesTab from "./EmployeeLeavesTab"
 import EmployeeWarningsTab from "./EmployeeWarningsTab"
+import EmployeeTimelineTab from "./EmployeeTimelineTab"
 
 interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
@@ -24,7 +25,8 @@ interface Employee {
   accountNumber: string | null; isActive: boolean; hiredAt: Date; paidLeaveBalance: number | null
   grade: Grade; user: { id: string; email: string }
 }
-interface Props { employee: Employee; grades: Grade[]; canManage: boolean; isOwner: boolean; viewerUserId: string }
+interface EventItem { id: string; type: string; title: string; description: string | null; createdAt: string }
+interface Props { employee: Employee; grades: Grade[]; canManage: boolean; isOwner: boolean; viewerUserId: string; events?: EventItem[] }
 
 const TABS = [
   { key: "info", label: "Informations" },
@@ -32,11 +34,13 @@ const TABS = [
   { key: "documents", label: "Documents" },
   { key: "leaves", label: "Congés" },
   { key: "warnings", label: "Avertissements" },
+  { key: "timeline", label: "Historique" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
-export default function EmployeeDetailClient({ employee, grades, canManage, isOwner, viewerUserId }: Props) {
+export default function EmployeeDetailClient({ employee, grades, canManage, isOwner, viewerUserId, events = [] }: Props) {
   const router = useRouter()
+  const visibleTabs = canManage ? TABS : TABS.filter(t => t.key !== "timeline")
   const [tab, setTab] = useState<TabKey>("info")
   const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "", paidLeaveBalance: employee.paidLeaveBalance !== null ? String(employee.paidLeaveBalance) : "" })
   const [loading, setLoading] = useState(false)
@@ -99,7 +103,7 @@ export default function EmployeeDetailClient({ employee, grades, canManage, isOw
       </div>
 
       <div className="flex gap-1 border-b">
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -175,6 +179,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage, isOw
 
       {tab === "warnings" && (
         <EmployeeWarningsTab employeeId={employee.id} canManage={canManage} isOwner={isOwner} />
+      )}
+
+      {tab === "timeline" && canManage && (
+        <EmployeeTimelineTab events={events} />
       )}
 
       <Dialog open={resetModal} onOpenChange={v => !v && setResetModal(false)}>

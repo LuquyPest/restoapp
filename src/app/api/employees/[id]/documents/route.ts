@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
 import { saveEmployeeFile } from "@/lib/employee-storage"
 import { isValidGoogleLink } from "@/lib/google-docs"
+import { logEmployeeEvent } from "@/lib/employee-events"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -56,6 +57,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         expiresAt, uploadedByUserId: session.user.id,
       },
     })
+    await logEmployeeEvent({
+      companyId, employeeId: id, type: "DOCUMENT_ADDED",
+      title: `Document ajouté : ${title}`, actorUserId: session.user.id,
+    })
     return NextResponse.json(document, { status: 201 })
   }
 
@@ -65,6 +70,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const document = await prisma.employeeDocument.create({
     data: { companyId, employeeId: id, title, kind: "LINK", externalUrl, expiresAt, uploadedByUserId: session.user.id },
+  })
+  await logEmployeeEvent({
+    companyId, employeeId: id, type: "DOCUMENT_ADDED",
+    title: `Document ajouté : ${title}`, actorUserId: session.user.id,
   })
   return NextResponse.json(document, { status: 201 })
 }

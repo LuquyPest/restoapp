@@ -22,5 +22,20 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   ])
   if (!employee) notFound()
 
-  return <EmployeeDetailClient employee={employee} grades={grades} canManage isOwner={session.user.role === "OWNER"} viewerUserId={session.user.id} />
+  const events = await prisma.employeeEvent.findMany({
+    where: { employeeId: id },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  })
+
+  return (
+    <EmployeeDetailClient
+      employee={employee}
+      grades={grades}
+      canManage
+      isOwner={session.user.role === "OWNER"}
+      viewerUserId={session.user.id}
+      events={events.map(e => ({ ...e, createdAt: e.createdAt.toISOString() }))}
+    />
+  )
 }

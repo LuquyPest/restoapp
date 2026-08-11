@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { log, getIp } from "@/lib/logger"
+import { logEmployeeEvent } from "@/lib/employee-events"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 
@@ -47,5 +48,12 @@ export async function POST(req: NextRequest) {
     ip: getIp(req.headers),
     metadata: { employeeEmail: email, employeeName: `${firstName} ${lastName}` },
   })
+  if (user.employee) {
+    await logEmployeeEvent({
+      companyId, employeeId: user.employee.id, type: "HIRED",
+      title: "Embauche", description: `Grade initial : ${grade.name}`,
+      actorUserId: session.user.id,
+    })
+  }
   return NextResponse.json(user.employee, { status: 201 })
 }

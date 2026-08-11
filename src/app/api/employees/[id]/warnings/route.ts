@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
+import { logEmployeeEvent } from "@/lib/employee-events"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -49,6 +50,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       description: parsed.data.description,
       occurredAt,
     },
+  })
+  await logEmployeeEvent({
+    companyId: session.user.companyId!, employeeId: id, type: "WARNING_ADDED",
+    title: `Avertissement : ${warning.title}`, actorUserId: session.user.id,
   })
   return NextResponse.json(warning, { status: 201 })
 }
