@@ -26,7 +26,7 @@ services:
       - internal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.restoapp.rule=Host(`compta2.daryu.xyz`)"
+      - "traefik.http.routers.restoapp.rule=Host(`restoapp.daryu.xyz`)"
       - "traefik.http.routers.restoapp.entrypoints=websecure"
       - "traefik.http.routers.restoapp.tls.certresolver=letsencrypt"
       - "traefik.http.services.restoapp.loadbalancer.server.port=3000"
