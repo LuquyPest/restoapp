@@ -10,12 +10,12 @@ export default async function AdminPage() {
   if (!token || !(await verifyAdminToken(token))) {
     redirect("/admin/login")
   }
-  const restaurants = await prisma.restaurant.findMany({
+  const companies = await prisma.company.findMany({
     include: {
       _count: { select: { employees: true, orders: true } },
       users: { where: { role: "OWNER" }, select: { email: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   })
-  return <AdminClient restaurants={restaurants as any} />
+  return <AdminClient companies={companies as any} />
 }

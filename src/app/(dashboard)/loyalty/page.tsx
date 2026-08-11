@@ -7,10 +7,10 @@ import LoyaltyClient from "@/components/loyalty/LoyaltyClient"
 export default async function LoyaltyPage() {
   const session = await auth()
   if (!session) redirect("/login")
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
   await requirePageAccess(session, "loyalty", ["OWNER", "MANAGER"])
   const cards = await prisma.loyaltyCard.findMany({
-    where: { restaurantId },
+    where: { companyId },
     orderBy: { createdAt: "desc" },
   })
   return <LoyaltyClient cards={cards as any} />

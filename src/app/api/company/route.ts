@@ -43,10 +43,10 @@ export async function PATCH(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const previous = await prisma.restaurant.findUnique({ where: { id: session.user.restaurantId } })
+  const previous = await prisma.company.findUnique({ where: { id: session.user.companyId } })
 
-  const restaurant = await prisma.restaurant.update({
-    where: { id: session.user.restaurantId },
+  const company = await prisma.company.update({
+    where: { id: session.user.companyId },
     data: parsed.data,
   })
 
@@ -57,14 +57,14 @@ export async function PATCH(req: NextRequest) {
       action: "RESTAURANT_RATES_MODIFIED",
       userId: session.user.id,
       userEmail: session.user.email ?? undefined,
-      restaurantId: session.user.restaurantId,
+      companyId: session.user.companyId,
       ip: getIp(req.headers),
       metadata: {
         before: { taxRate: previous?.taxRate, bonusRate: previous?.bonusRate, dividendRate: previous?.dividendRate },
-        after: { taxRate: restaurant.taxRate, bonusRate: restaurant.bonusRate, dividendRate: restaurant.dividendRate },
+        after: { taxRate: company.taxRate, bonusRate: company.bonusRate, dividendRate: company.dividendRate },
       },
     })
   }
 
-  return NextResponse.json(restaurant)
+  return NextResponse.json(company)
 }

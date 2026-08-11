@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   let year = now.getFullYear()
   if (week < 1) { week = 52; year-- }
 
-  const restaurants = await prisma.restaurant.findMany({
+  const companies = await prisma.company.findMany({
     where: {
       webhookUrl: { not: null },
       webhookDay: currentDay,
@@ -38,18 +38,18 @@ export async function POST(req: NextRequest) {
     select: { id: true, name: true, currency: true, webhookUrl: true },
   })
 
-  const results: { restaurant: string; status: string }[] = []
+  const results: { company: string; status: string }[] = []
 
-  for (const restaurant of restaurants) {
-    if (!restaurant.webhookUrl) continue
+  for (const company of companies) {
+    if (!company.webhookUrl) continue
     try {
-      const data = await buildReportData(restaurant.id, restaurant.name, restaurant.currency, week, year)
+      const data = await buildReportData(company.id, company.name, company.currency, week, year)
       const html = generateReportHtml(data, week, year)
       const htmlBuffer = Buffer.from(html, "utf-8")
-      const status = await sendWebhook(restaurant.webhookUrl, data, htmlBuffer, week, year)
-      results.push({ restaurant: restaurant.name, status })
+      const status = await sendWebhook(company.webhookUrl, data, htmlBuffer, week, year)
+      results.push({ company: company.name, status })
     } catch (e: any) {
-      results.push({ restaurant: restaurant.name, status: `failed: ${e.message}` })
+      results.push({ company: company.name, status: `failed: ${e.message}` })
     }
   }
 

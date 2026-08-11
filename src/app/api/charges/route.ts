@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
     week = w; year = y
   }
 
-  let where: any = { restaurantId: session.user.restaurantId, deletedAt: null }
+  let where: any = { companyId: session.user.companyId, deletedAt: null }
   if (week && year) {
     where = {
-      restaurantId: session.user.restaurantId,
+      companyId: session.user.companyId,
       deletedAt: null,
       OR: [
         { weekNumber: null, year: null },
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const body = await req.json()
   const parsed = schema.safeParse(body)
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       isActive: parsed.data.isActive ?? true,
       weekNumber: parsed.data.weekNumber ?? null,
       year: parsed.data.year ?? null,
-      restaurantId,
+      companyId,
     }
   })
   return NextResponse.json(charge, { status: 201 })

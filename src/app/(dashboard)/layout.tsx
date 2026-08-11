@@ -7,8 +7,8 @@ import DashboardShell from "@/components/layout/DashboardShell"
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect("/login")
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { restaurant: true } })
-  if (!user?.restaurant) redirect("/login")
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { company: true } })
+  if (!user?.company) redirect("/login")
 
   let pagePermissions: string[] | null = null
   let accessRoleName: string | null = null
@@ -26,11 +26,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   if (user.role === "OWNER" || user.role === "MANAGER") {
-    checkAndCreateInvoiceNotifications(user.restaurant.id).catch(() => {})
+    checkAndCreateInvoiceNotifications(user.company.id).catch(() => {})
   }
 
   const notifications = await prisma.notification.findMany({
-    where: { restaurantId: user.restaurant.id, isRead: false },
+    where: { companyId: user.company.id, isRead: false },
     orderBy: { createdAt: "desc" },
     take: 50,
   })
@@ -38,9 +38,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <DashboardShell
       userRole={user.role}
-      restaurantName={user.restaurant.name}
+      companyName={user.company.name}
+      companyType={user.company.type}
       userName={user.name ?? user.email}
-      restaurantLogo={user.restaurant.logo ?? null}
+      companyLogo={user.company.logo ?? null}
       gradePermissions={pagePermissions}
       accessRoleName={accessRoleName}
       initialNotifications={notifications.map(n => ({ ...n, createdAt: n.createdAt.toISOString() }))}

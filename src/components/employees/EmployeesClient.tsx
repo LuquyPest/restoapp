@@ -18,12 +18,12 @@ interface Employee {
   accountNumber: string | null; isActive: boolean; hiredAt: Date
   grade: Grade; user: { email: string; id: string }
 }
-interface Props { employees: Employee[]; grades: Grade[]; currency: string; restaurantId: string }
+interface Props { employees: Employee[]; grades: Grade[]; currency: string; companyId: string }
 
 const EMPTY_EMP = { firstName: "", lastName: "", email: "", password: "", gradeId: "", phone: "", accountNumber: "" }
 const EMPTY_GRADE = { name: "", salaryPercent: "", dividendPercent: "" }
 
-export default function EmployeesClient({ employees, grades, restaurantId }: Props) {
+export default function EmployeesClient({ employees, grades, companyId }: Props) {
   const router = useRouter()
   const [modal, setModal] = useState<"create" | "grade" | "editGrade" | "editEmp" | "resetPwd" | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null)

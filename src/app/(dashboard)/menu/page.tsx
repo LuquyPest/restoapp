@@ -7,19 +7,19 @@ export default async function MenuPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
-  const { restaurantId, role } = session.user
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
+  const { companyId, role } = session.user
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
 
   const [items, ingredients] = await Promise.all([
     prisma.menuItem.findMany({
-      where: { restaurantId, deletedAt: null },
+      where: { companyId, deletedAt: null },
       include: { recipeLines: { include: { ingredient: true } } },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     session.user.role === "OWNER"
-      ? prisma.ingredient.findMany({ where: { restaurantId }, orderBy: { name: "asc" } })
+      ? prisma.ingredient.findMany({ where: { companyId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
   ])
 
-  return <MenuClient items={items} role={role} currency={restaurant?.currency ?? "$"} ingredients={ingredients} />
+  return <MenuClient items={items} role={role} currency={company?.currency ?? "$"} ingredients={ingredients} companyType={company?.type ?? "RESTO_BAR"} />
 }

@@ -9,10 +9,10 @@ export default async function StockHistoryPage() {
   if (!session) redirect("/login")
   await requirePageAccess(session, "stock", ["OWNER"])
 
-  const { restaurantId } = session.user
+  const { companyId } = session.user
 
   const orders = await prisma.order.findMany({
-    where: { restaurantId, status: "CONFIRMED" },
+    where: { companyId, status: "CONFIRMED" },
     include: {
       lines: { include: { menuItem: true } },
       employee: { select: { firstName: true, lastName: true } },

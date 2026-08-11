@@ -14,7 +14,7 @@ interface AuditLog {
   action: string
   userId: string | null
   userEmail: string | null
-  restaurantId: string | null
+  companyId: string | null
   ip: string | null
   metadata: string | null
   createdAt: string
@@ -39,12 +39,12 @@ const ACTION_LABELS: Record<string, { label: string; variant: "default" | "destr
 const ALL_ACTIONS = Object.keys(ACTION_LABELS)
 const LIVE_INTERVAL = 5000
 
-export default function RestaurantLogsClient({
-  restaurantId,
-  restaurantName,
+export default function CompanyLogsClient({
+  companyId,
+  companyName,
 }: {
-  restaurantId: string
-  restaurantName: string
+  companyId: string
+  companyName: string
 }) {
   const router = useRouter()
   const [logs, setLogs] = useState<AuditLog[]>([])
@@ -67,7 +67,7 @@ export default function RestaurantLogsClient({
 
   const fetchLogs = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
-    const params = new URLSearchParams({ page: String(page), restaurantId })
+    const params = new URLSearchParams({ page: String(page), companyId })
     if (action !== "all") params.set("action", action)
     if (debouncedSearch) params.set("search", debouncedSearch)
     const res = await fetch(`/api/admin/logs?${params}`)
@@ -89,7 +89,7 @@ export default function RestaurantLogsClient({
       setLastRefresh(new Date())
     }
     if (!silent) setLoading(false)
-  }, [page, action, debouncedSearch, restaurantId])
+  }, [page, action, debouncedSearch, companyId])
 
   // Initial fetch + deps change
   useEffect(() => { fetchLogs() }, [fetchLogs])
@@ -139,10 +139,10 @@ export default function RestaurantLogsClient({
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-            {restaurantName.slice(0, 1).toUpperCase()}
+            {companyName.slice(0, 1).toUpperCase()}
           </div>
           <div>
-            <span className="font-semibold text-sm">{restaurantName}</span>
+            <span className="font-semibold text-sm">{companyName}</span>
             <span className="text-muted-foreground text-xs ml-2">— Logs d'audit</span>
           </div>
           <Badge variant="destructive" className="text-[10px]">SUPER ADMIN</Badge>

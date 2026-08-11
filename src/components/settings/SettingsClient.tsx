@@ -9,14 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CONFIGURABLE_PAGES } from "@/lib/page-permissions"
+import { getConfigurablePages } from "@/lib/page-permissions"
+import { COMPANY_TYPE_LABELS, type CompanyType } from "@/lib/business-types"
 
-interface Restaurant { id: string; name: string; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null; webhookDay?: number; webhookHour?: number; stockAlertWebhookUrl?: string | null }
-interface RestaurantUser { id: string; name: string | null; email: string; role: string }
+interface Company { id: string; name: string; type: CompanyType; currency: string; bonusRate?: number; dividendRate?: number; logo?: string | null; webhookUrl?: string | null; webhookDay?: number; webhookHour?: number; stockAlertWebhookUrl?: string | null }
+interface CompanyUser { id: string; name: string | null; email: string; role: string }
 interface AccessRoleData {
   id: string; name: string
   permissions: { page: string }[]
-  users: RestaurantUser[]
+  users: CompanyUser[]
 }
 
 const DAYS = [
@@ -25,17 +26,17 @@ const DAYS = [
 ]
 
 export default function SettingsClient({
-  restaurant,
+  company,
   accessRoles: initialRoles = [],
-  restaurantUsers = [],
+  companyUsers = [],
   webhookUrl: initialWebhookUrl = "",
   webhookDay: initialWebhookDay = 1,
   webhookHour: initialWebhookHour = 1,
   stockAlertWebhookUrl: initialStockAlertWebhookUrl = "",
 }: {
-  restaurant: Restaurant
+  company: Company
   accessRoles?: AccessRoleData[]
-  restaurantUsers?: RestaurantUser[]
+  companyUsers?: CompanyUser[]
   webhookUrl?: string
   webhookDay?: number
   webhookHour?: number
@@ -43,11 +44,11 @@ export default function SettingsClient({
 }) {
   const router = useRouter()
   const [form, setForm] = useState({
-    name: restaurant.name,
-    currency: restaurant.currency,
-    bonusRate: String(restaurant.bonusRate ?? 30),
-    dividendRate: String(restaurant.dividendRate ?? 45),
-    logo: restaurant.logo ?? "",
+    name: company.name,
+    currency: company.currency,
+    bonusRate: String(company.bonusRate ?? 30),
+    dividendRate: String(company.dividendRate ?? 45),
+    logo: company.logo ?? "",
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -57,6 +58,7 @@ export default function SettingsClient({
   const [webhookTesting, setWebhookTesting] = useState(false)
   const [webhookTestResult, setWebhookTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [stockAlertWebhookUrl, setStockAlertWebhookUrl] = useState(initialStockAlertWebhookUrl)
+  const configurablePages = getConfigurablePages(company.type)
 
   // Access roles state
   const [roles, setRoles] = useState<AccessRoleData[]>(initialRoles)
@@ -140,7 +142,7 @@ export default function SettingsClient({
 
   async function save() {
     setLoading(true)
-    await fetch("/api/restaurants", {
+    await fetch("/api/company", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.name, currency: form.currency,
@@ -159,7 +161,7 @@ export default function SettingsClient({
   async function testWebhook() {
     setWebhookTesting(true)
     setWebhookTestResult(null)
-    const res = await fetch("/api/restaurants/webhook", { method: "POST" })
+    const res = await fetch("/api/company/webhook", { method: "POST" })
     const data = await res.json()
     setWebhookTestResult(res.ok ? { ok: true, msg: "Webhook envoyé avec succès !" } : { ok: false, msg: data.error ?? "Erreur inconnue" })
     setWebhookTesting(false)
@@ -207,6 +209,11 @@ export default function SettingsClient({
           <div className="space-y-1.5">
             <Label>Nom de l'établissement</Label>
             <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Type d'entreprise</Label>
+            <div><Badge variant="secondary">{COMPANY_TYPE_LABELS[company.type]}</Badge></div>
+            <p className="text-xs text-muted-foreground">Modifiable uniquement par un administrateur</p>
           </div>
           <div className="space-y-1.5">
             <Label>Symbole monétaire</Label>
@@ -393,14 +400,14 @@ export default function SettingsClient({
           {selectedRoleId && roles.find(r => r.id === selectedRoleId) && (() => {
             const role = roles.find(r => r.id === selectedRoleId)!
             const assigned = roleUsers[role.id] ?? []
-            const unassigned = restaurantUsers.filter(u => !assigned.includes(u.id))
+            const unassigned = companyUsers.filter(u => !assigned.includes(u.id))
             return (
               <div className="rounded-lg border p-4 space-y-4">
                 {/* Pages */}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pages accessibles</p>
                   <div className="grid grid-cols-2 gap-1">
-                    {CONFIGURABLE_PAGES.map(page => (
+                    {configurablePages.map(page => (
                       <label key={page.key} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer transition-colors">
                         <input type="checkbox" checked={rolePages[role.id]?.has(page.key) ?? false}
                           onChange={() => togglePage(role.id, page.key)}
@@ -424,7 +431,7 @@ export default function SettingsClient({
                   {assigned.length === 0 && <p className="text-xs text-muted-foreground">Aucun membre</p>}
                   <div className="space-y-1">
                     {assigned.map(uid => {
-                      const u = restaurantUsers.find(x => x.id === uid)
+                      const u = companyUsers.find(x => x.id === uid)
                       if (!u) return null
                       return (
                         <div key={uid} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-1.5">

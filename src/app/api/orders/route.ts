@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const { restaurantId } = session.user
+  const { companyId } = session.user
   const now = new Date()
   const weekNumber = parsed.data.weekNumber ?? getISOWeek(now)
   const year = parsed.data.year ?? now.getFullYear()
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   // Fetch prices from DB — never trust client-supplied prices
   const menuItemIds = parsed.data.lines.map(l => l.menuItemId)
   const menuItems = await prisma.menuItem.findMany({
-    where: { id: { in: menuItemIds }, restaurantId, isAvailable: true, deletedAt: null },
+    where: { id: { in: menuItemIds }, companyId, isAvailable: true, deletedAt: null },
   })
   if (menuItems.length !== menuItemIds.length) {
     return NextResponse.json({ error: "Article introuvable ou indisponible" }, { status: 404 })
@@ -55,11 +55,11 @@ export async function POST(req: NextRequest) {
 
   let employee = await prisma.employee.findFirst({ where: { userId: session.user.id } })
   if (!employee) {
-    const grade = await prisma.grade.findFirst({ where: { restaurantId } })
+    const grade = await prisma.grade.findFirst({ where: { companyId } })
     if (!grade) return NextResponse.json({ error: "Aucun grade configuré" }, { status: 400 })
     employee = await prisma.employee.create({
       data: {
-        userId: session.user.id, restaurantId, gradeId: grade.id,
+        userId: session.user.id, companyId, gradeId: grade.id,
         firstName: session.user.name?.split(" ")[0] ?? "Patron",
         lastName: session.user.name?.split(" ").slice(1).join(" ") ?? "",
       },
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   let partnerDiscount = 0
   let partner = null
   if (parsed.data.partnerId) {
-    partner = await prisma.partner.findFirst({ where: { id: parsed.data.partnerId, restaurantId, isActive: true } })
+    partner = await prisma.partner.findFirst({ where: { id: parsed.data.partnerId, companyId, isActive: true } })
     if (partner) partnerDiscount = partner.discountPercent
   }
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   let loyaltyCard = null
   if (parsed.data.loyaltyCardId) {
     loyaltyCard = await prisma.loyaltyCard.findFirst({
-      where: { id: parsed.data.loyaltyCardId, restaurantId, isActive: true, expiresAt: { gte: now } },
+      where: { id: parsed.data.loyaltyCardId, companyId, isActive: true, expiresAt: { gte: now } },
     })
     if (loyaltyCard) loyaltyDiscount = loyaltyCard.discountPercent
   }
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   const order = await prisma.order.create({
     data: {
-      restaurantId, employeeId: employee.id,
+      companyId, employeeId: employee.id,
       partnerId: partner?.id ?? null,
       loyaltyCardId: loyaltyCard?.id ?? null,
       total, discountAmount,
@@ -150,8 +150,8 @@ export async function POST(req: NextRequest) {
     )
 
     // Check low stock and send alert
-    const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { stockAlertWebhookUrl: true, name: true, currency: true } })
-    if (restaurant?.stockAlertWebhookUrl) {
+    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { stockAlertWebhookUrl: true, name: true, currency: true } })
+    if (company?.stockAlertWebhookUrl) {
       const updatedIngredients = await prisma.ingredient.findMany({
         where: { id: { in: Array.from(deductions.keys()) } },
       })
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
         // DB notifications (persistent, dismissable)
         await Promise.all(lowStock.map(i =>
           upsertNotification({
-            restaurantId,
+            companyId,
             type: "LOW_STOCK",
             entityId: i.id,
             title: "Stock bas",
@@ -168,21 +168,21 @@ export async function POST(req: NextRequest) {
           })
         ))
 
-        const alertUrl = restaurant.stockAlertWebhookUrl
+        const alertUrl = company.stockAlertWebhookUrl
         // Vérification DNS au moment du fetch pour contrer le DNS rebinding
         if (await isSafeToFetch(alertUrl)) {
           const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(alertUrl)
           const payload = isDiscord
             ? {
                 embeds: [{
-                  title: `⚠️ Stock bas — ${restaurant.name}`,
+                  title: `⚠️ Stock bas — ${company.name}`,
                   color: 0xf59e0b,
                   fields: lowStock.map(i => ({ name: i.name, value: `Stock: **${i.quantity}** (seuil: ${i.minQuantity})`, inline: true })),
                   footer: { text: "RestoCompta · Alerte stock" },
                   timestamp: new Date().toISOString(),
                 }],
               }
-            : { type: "LOW_STOCK", restaurant: restaurant.name, ingredients: lowStock.map(i => ({ name: i.name, quantity: i.quantity, minQuantity: i.minQuantity })) }
+            : { type: "LOW_STOCK", company: company.name, ingredients: lowStock.map(i => ({ name: i.name, quantity: i.quantity, minQuantity: i.minQuantity })) }
 
           fetch(alertUrl, {
             method: "POST",
@@ -201,11 +201,11 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
 
   const where = role === "EMPLOYEE"
-    ? { restaurantId, employee: { userId: session.user.id } }
-    : { restaurantId }
+    ? { companyId, employee: { userId: session.user.id } }
+    : { companyId }
 
   const orders = await prisma.order.findMany({
     where,

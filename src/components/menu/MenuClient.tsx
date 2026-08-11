@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { BUSINESS_VOCAB, type CompanyType } from "@/lib/business-types"
 
 interface RecipeLine { ingredientId: string; ingredientName: string; quantity: number }
 interface MenuItem {
@@ -23,9 +24,10 @@ interface Ingredient { id: string; name: string; quantity: number; minQuantity: 
 
 const EMPTY = { name: "", description: "", price: "", costPrice: "", category: "", imageUrl: "", isAvailable: true }
 
-interface Props { items: MenuItem[]; role: string; currency: string; ingredients: Ingredient[] }
+interface Props { items: MenuItem[]; role: string; currency: string; ingredients: Ingredient[]; companyType: CompanyType }
 
-export default function MenuClient({ items, role, currency, ingredients }: Props) {
+export default function MenuClient({ items, role, currency, ingredients, companyType }: Props) {
+  const vocab = BUSINESS_VOCAB[companyType]
   const router = useRouter()
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
   const [selected, setSelected] = useState<MenuItem | null>(null)
@@ -108,7 +110,7 @@ export default function MenuClient({ items, role, currency, ingredients }: Props
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Carte</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{vocab.menuNavLabel}</h1>
           <p className="text-sm text-muted-foreground mt-1">{items.length} article{items.length > 1 ? "s" : ""}</p>
         </div>
         {canEdit && <Button onClick={openCreate}><Plus className="h-4 w-4" /> Ajouter</Button>}
@@ -184,7 +186,7 @@ export default function MenuClient({ items, role, currency, ingredients }: Props
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5"><Label>Prix vente</Label><Input type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
               <div className="space-y-1.5"><Label>Coût revient</Label><Input type="number" step="0.01" min="0" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: e.target.value })} /></div>
-              <div className="space-y-1.5"><Label>Catégorie</Label><Input placeholder="Plats..." value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Catégorie</Label><Input placeholder={vocab.menuCategoryPlaceholder} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
             </div>
             <div className="space-y-1.5">
               <Label>Image (URL)</Label>
@@ -200,10 +202,10 @@ export default function MenuClient({ items, role, currency, ingredients }: Props
               <Label>Disponible à la vente</Label>
             </div>
 
-            {canRecipe && ingredients.length > 0 && (
+            {canRecipe && vocab.recipeLabel && ingredients.length > 0 && (
               <div className="space-y-2 rounded-lg border p-3 bg-muted/20">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <ChefHat className="h-3 w-3" />Recette (ingrédients)
+                  <ChefHat className="h-3 w-3" />{vocab.recipeLabel}
                 </p>
 
                 {recipeLines.length > 0 && (

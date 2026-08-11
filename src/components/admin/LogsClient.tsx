@@ -14,7 +14,7 @@ interface AuditLog {
   action: string
   userId: string | null
   userEmail: string | null
-  restaurantId: string | null
+  companyId: string | null
   ip: string | null
   metadata: string | null
   createdAt: string
@@ -31,8 +31,8 @@ const ACTION_LABELS: Record<string, { label: string; variant: "default" | "destr
   PASSWORD_RESET:        { label: "MDP réinitialisé",    variant: "outline" },
   EMPLOYEE_CREATED:      { label: "Employé créé",        variant: "default" },
   EMPLOYEE_DELETED:      { label: "Employé supprimé",    variant: "destructive" },
-  RESTAURANT_CREATED:    { label: "Restaurant créé",     variant: "default" },
-  RESTAURANT_DELETED:    { label: "Restaurant supprimé", variant: "destructive" },
+  RESTAURANT_CREATED:    { label: "Établissement créé",     variant: "default" },
+  RESTAURANT_DELETED:    { label: "Établissement supprimé", variant: "destructive" },
   PAYROLL_GENERATED:     { label: "Paie générée",        variant: "secondary" },
   ORDER_CANCELLED:       { label: "Commande annulée",    variant: "outline" },
 }

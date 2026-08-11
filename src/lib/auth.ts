@@ -38,7 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
-          include: { restaurant: true },
+          include: { company: true },
         })
 
         if (!user || !user.passwordHash || user.role === "SUPERADMIN") {
@@ -81,7 +81,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           action: "LOGIN_SUCCESS",
           userId: user.id,
           userEmail: user.email,
-          restaurantId: user.restaurantId ?? undefined,
+          companyId: user.companyId ?? undefined,
           ip,
         })
 
@@ -90,7 +90,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
-          restaurantId: user.restaurantId,
+          companyId: user.companyId,
         }
       },
     }),
@@ -99,7 +99,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role
-        token.restaurantId = (user as any).restaurantId
+        token.companyId = (user as any).companyId
       }
       return token
     },
@@ -107,7 +107,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token) {
         session.user.id = token.sub as string
         session.user.role = token.role as string
-        session.user.restaurantId = token.restaurantId as string
+        session.user.companyId = token.companyId as string
       }
       return session
     },
@@ -120,7 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           action: "LOGOUT",
           userId: token.sub,
           userEmail: token.email ?? undefined,
-          restaurantId: token.restaurantId ?? undefined,
+          companyId: token.companyId ?? undefined,
         })
       }
     },

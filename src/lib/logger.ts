@@ -18,7 +18,7 @@ interface LogEntry {
   action: AuditAction
   userId?: string
   userEmail?: string
-  restaurantId?: string
+  companyId?: string
   ip?: string
   metadata?: Record<string, unknown>
 }
@@ -34,7 +34,7 @@ export async function log(entry: LogEntry): Promise<void> {
         action: entry.action,
         userId: entry.userId ?? null,
         userEmail: entry.userEmail ?? null,
-        restaurantId: entry.restaurantId ?? null,
+        companyId: entry.companyId ?? null,
         ip: entry.ip ?? null,
         metadata,
       },

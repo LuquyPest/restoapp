@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Mot de passe trop court (min. 6 caractères)" }, { status: 400 })
 
-  const employee = await prisma.employee.findFirst({ where: { id, restaurantId } })
+  const employee = await prisma.employee.findFirst({ where: { id, companyId } })
   if (!employee) return NextResponse.json({ error: "Employé introuvable" }, { status: 404 })
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12)
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     action: "PASSWORD_RESET",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
-    restaurantId: restaurantId ?? undefined,
+    companyId: companyId ?? undefined,
     ip: getIp(req.headers),
     metadata: { targetEmployeeId: id },
   })

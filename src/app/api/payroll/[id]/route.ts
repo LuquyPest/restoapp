@@ -9,12 +9,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
 
-  const payroll = await prisma.payroll.findFirst({ where: { id, restaurantId } })
+  const payroll = await prisma.payroll.findFirst({ where: { id, companyId } })
   if (!payroll) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const body = await req.json()

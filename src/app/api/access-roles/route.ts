@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session || session.user.role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const roles = await prisma.accessRole.findMany({
-    where: { restaurantId: session.user.restaurantId },
+    where: { companyId: session.user.companyId },
     include: { permissions: true, users: { select: { id: true, name: true, email: true, role: true } } },
     orderBy: { createdAt: "asc" },
   })
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Nom invalide" }, { status: 400 })
   const role = await prisma.accessRole.create({
-    data: { name: parsed.data.name, restaurantId: session.user.restaurantId },
+    data: { name: parsed.data.name, companyId: session.user.companyId },
     include: { permissions: true, users: { select: { id: true, name: true, email: true, role: true } } },
   })
   return NextResponse.json(role, { status: 201 })

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const items = await prisma.menuItem.findMany({
-    where: { restaurantId: session.user.restaurantId, deletedAt: null },
+    where: { companyId: session.user.companyId, deletedAt: null },
     include: { recipeLines: { include: { ingredient: true } } },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   })
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const body = await req.json()
   const parsed = schema.safeParse(body)
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     data: {
       ...itemData,
       imageUrl: itemData.imageUrl || null,
-      restaurantId,
+      companyId,
       recipeLines: recipeLines && recipeLines.length > 0
         ? { create: recipeLines.map(l => ({ ingredientId: l.ingredientId, quantity: l.quantity })) }
         : undefined,

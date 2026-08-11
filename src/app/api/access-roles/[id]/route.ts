@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session || session.user.role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
-  const role = await prisma.accessRole.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
+  const role = await prisma.accessRole.findFirst({ where: { id, companyId: session.user.companyId } })
   if (!role) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const body = await req.json()
@@ -38,11 +38,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (userIds !== undefined) {
-      // Remove this role from all current users of this restaurant
-      await tx.user.updateMany({ where: { accessRoleId: id, restaurantId: session.user.restaurantId }, data: { accessRoleId: null } })
-      // Assign to new users (only restaurant members)
+      // Remove this role from all current users of this company
+      await tx.user.updateMany({ where: { accessRoleId: id, companyId: session.user.companyId }, data: { accessRoleId: null } })
+      // Assign to new users (only company members)
       if (userIds.length > 0) {
-        await tx.user.updateMany({ where: { id: { in: userIds }, restaurantId: session.user.restaurantId }, data: { accessRoleId: id } })
+        await tx.user.updateMany({ where: { id: { in: userIds }, companyId: session.user.companyId }, data: { accessRoleId: id } })
       }
     }
   })
@@ -59,7 +59,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!session || session.user.role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
-  const role = await prisma.accessRole.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
+  const role = await prisma.accessRole.findFirst({ where: { id, companyId: session.user.companyId } })
   if (!role) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   await prisma.accessRole.delete({ where: { id } })

@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "RestoCompta",
-  description: "Gestion de restaurant",
+  description: "Gestion d'entreprise",
   icons: {
     icon: [
       { url: "/logo.png", sizes: "32x32", type: "image/png" },

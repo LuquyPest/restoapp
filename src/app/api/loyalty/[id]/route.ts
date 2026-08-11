@@ -14,14 +14,14 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const card = await prisma.loyaltyCard.findFirst({ where: { id, restaurantId } })
+  const card = await prisma.loyaltyCard.findFirst({ where: { id, companyId } })
   if (!card) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const updateData: Record<string, unknown> = {}
@@ -42,9 +42,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
-  await prisma.loyaltyCard.deleteMany({ where: { id, restaurantId } })
+  await prisma.loyaltyCard.deleteMany({ where: { id, companyId } })
   return NextResponse.json({ ok: true })
 }

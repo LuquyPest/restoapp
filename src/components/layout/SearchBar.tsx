@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Search, Users, UtensilsCrossed, FileText, ShoppingBag, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { BUSINESS_VOCAB, type CompanyType } from "@/lib/business-types"
 
 interface SearchResults {
   employees: { id: string; firstName: string; lastName: string }[]
@@ -11,7 +12,8 @@ interface SearchResults {
   orders: { id: string; total: number; createdAt: string; employee: { firstName: string; lastName: string } | null }[]
 }
 
-export default function SearchBar() {
+export default function SearchBar({ companyType }: { companyType: CompanyType }) {
+  const vocab = BUSINESS_VOCAB[companyType]
   const router = useRouter()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResults | null>(null)
@@ -62,7 +64,7 @@ export default function SearchBar() {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Rechercher employé, article, facture, commande…"
+          placeholder={vocab.searchPlaceholder}
           value={query}
           onChange={e => setQuery(e.target.value)}
           onFocus={() => { if (results && total > 0) setOpen(true) }}
@@ -87,7 +89,7 @@ export default function SearchBar() {
             </Section>
           )}
           {results.menuItems.length > 0 && (
-            <Section icon={<UtensilsCrossed className="h-3 w-3" />} label="Articles">
+            <Section icon={<UtensilsCrossed className="h-3 w-3" />} label={vocab.searchArticleLabel}>
               {results.menuItems.map(i => (
                 <ResultItem key={i.id} onClick={() => navigate("/menu")} sub={i.category}>
                   {i.name}

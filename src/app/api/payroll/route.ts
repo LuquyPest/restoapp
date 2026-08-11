@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
 
   const where = role === "EMPLOYEE"
-    ? { restaurantId, employee: { userId: session.user.id } }
-    : { restaurantId }
+    ? { companyId, employee: { userId: session.user.id } }
+    : { companyId }
 
   const payrolls = await prisma.payroll.findMany({
     where,
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role !== "OWNER" && role !== "MANAGER") {
     return NextResponse.json({ error: "Interdit" }, { status: 403 })
   }
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const { weekNumber, year, taxRate = 0, bonuses = {} } = parsed.data
 
   const employees = await prisma.employee.findMany({
-    where: { restaurantId, isActive: true },
+    where: { companyId, isActive: true },
     include: { grade: true },
   })
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (!existing) {
       const payroll = await prisma.payroll.create({
         data: {
-          restaurantId,
+          companyId,
           employeeId: emp.id,
           weekNumber,
           year,
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     action: "PAYROLL_GENERATED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
-    restaurantId,
+    companyId,
     ip: getIp(req.headers),
     metadata: { weekNumber, year, count: created.length },
   })

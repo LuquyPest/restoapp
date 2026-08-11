@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   const cards = await prisma.loyaltyCard.findMany({
-    where: { restaurantId: session.user.restaurantId },
+    where: { companyId: session.user.companyId },
     orderBy: { createdAt: "desc" },
   })
   return NextResponse.json(cards)
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const body = await req.json()
   const parsed = schema.safeParse(body)
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   expiresAt.setDate(expiresAt.getDate() + 7) // 1 week default
 
   const card = await prisma.loyaltyCard.create({
-    data: { ...parsed.data, restaurantId, expiresAt },
+    data: { ...parsed.data, companyId, expiresAt },
   })
   return NextResponse.json(card, { status: 201 })
 }

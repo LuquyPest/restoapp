@@ -9,10 +9,13 @@ export default async function StockPage() {
   if (!session) redirect("/login")
   await requirePageAccess(session, "stock", ["OWNER"])
 
-  const ingredients = await prisma.ingredient.findMany({
-    where: { restaurantId: session.user.restaurantId },
-    orderBy: { name: "asc" },
-  })
+  const [ingredients, company] = await Promise.all([
+    prisma.ingredient.findMany({
+      where: { companyId: session.user.companyId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.company.findUnique({ where: { id: session.user.companyId } }),
+  ])
 
-  return <StockClient ingredients={ingredients} />
+  return <StockClient ingredients={ingredients} companyType={company?.type ?? "RESTO_BAR"} />
 }

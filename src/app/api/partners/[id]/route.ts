@@ -12,13 +12,13 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-  const partner = await prisma.partner.findFirst({ where: { id, restaurantId } })
+  const partner = await prisma.partner.findFirst({ where: { id, companyId } })
   if (!partner) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.partner.update({
     where: { id },
@@ -34,9 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
-  await prisma.partner.updateMany({ where: { id, restaurantId }, data: { isActive: false } })
+  await prisma.partner.updateMany({ where: { id, companyId }, data: { isActive: false } })
   return NextResponse.json({ ok: true })
 }

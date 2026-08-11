@@ -7,8 +7,8 @@ import PartnersClient from "@/components/partners/PartnersClient"
 export default async function PartnersPage() {
   const session = await auth()
   if (!session) redirect("/login")
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
   await requirePageAccess(session, "partners", ["OWNER", "MANAGER"])
-  const partners = await prisma.partner.findMany({ where: { restaurantId }, orderBy: { name: "asc" } })
+  const partners = await prisma.partner.findMany({ where: { companyId }, orderBy: { name: "asc" } })
   return <PartnersClient partners={partners} />
 }

@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Statut invalide" }, { status: 400 })
 
-  const invoice = await prisma.invoice.findFirst({ where: { id, restaurantId, deletedAt: null } })
+  const invoice = await prisma.invoice.findFirst({ where: { id, companyId, deletedAt: null } })
   if (!invoice) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const updated = await prisma.invoice.update({
@@ -38,11 +38,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role !== "OWNER") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
-  const invoice = await prisma.invoice.findFirst({ where: { id, restaurantId, deletedAt: null } })
+  const invoice = await prisma.invoice.findFirst({ where: { id, companyId, deletedAt: null } })
   if (!invoice) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   await prisma.invoice.update({ where: { id }, data: { deletedAt: new Date() } })
@@ -50,7 +50,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     action: "INVOICE_DELETED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
-    restaurantId,
+    companyId,
     ip: getIp(req.headers),
     metadata: { invoiceId: id, amount: invoice.amount, reference: invoice.reference },
   })

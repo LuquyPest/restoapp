@@ -18,7 +18,7 @@ export function formatDiscordEmbed(data: any, week: number, year: number): objec
   return {
     embeds: [{
       title: `📊 Bilan S${String(week).padStart(2, "0")} ${year}${data.test ? " — TEST" : ""}`,
-      description: `**${data.restaurantName}**\n${data.weekStart} → ${data.weekEnd}`,
+      description: `**${data.companyName}**\n${data.weekStart} → ${data.weekEnd}`,
       color: 0x6366f1,
       fields: [
         { name: "💰 CA semaine", value: fmt(data.revenue, currency), inline: true },
@@ -57,34 +57,34 @@ export async function sendWebhook(url: string, data: any, htmlBuffer: Buffer, we
 }
 
 export async function buildReportData(
-  restaurantId: string,
-  restaurantName: string,
+  companyId: string,
+  companyName: string,
   currency: string,
   week: number,
   year: number
 ): Promise<any> {
   const { start, end } = getWeekBounds(week, year)
 
-  const [restaurant, orders, allCharges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
-    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
+  const [company, orders, allCharges, employees, suppliers, invoices, loyaltyCards, partners] = await Promise.all([
+    prisma.company.findUnique({ where: { id: companyId } }),
     prisma.order.findMany({
-      where: { restaurantId, status: "CONFIRMED", weekNumber: week, year },
+      where: { companyId, status: "CONFIRMED", weekNumber: week, year },
       include: { lines: { include: { menuItem: true } }, partner: true, loyaltyCard: true, employee: { include: { grade: true } } },
     }),
-    prisma.charge.findMany({ where: { restaurantId, isActive: true, deletedAt: null } }),
-    prisma.employee.findMany({ where: { restaurantId, isActive: true }, include: { grade: true } }),
-    prisma.supplier.findMany({ where: { restaurantId } }),
-    prisma.invoice.findMany({ where: { restaurantId, deletedAt: null }, include: { supplier: true } }),
-    prisma.loyaltyCard.findMany({ where: { restaurantId } }),
-    prisma.partner.findMany({ where: { restaurantId } }),
+    prisma.charge.findMany({ where: { companyId, isActive: true, deletedAt: null } }),
+    prisma.employee.findMany({ where: { companyId, isActive: true }, include: { grade: true } }),
+    prisma.supplier.findMany({ where: { companyId } }),
+    prisma.invoice.findMany({ where: { companyId, deletedAt: null }, include: { supplier: true } }),
+    prisma.loyaltyCard.findMany({ where: { companyId } }),
+    prisma.partner.findMany({ where: { companyId } }),
   ])
 
   const charges = allCharges.filter((c: any) =>
     (!c.weekNumber && !c.year) || (c.weekNumber === week && c.year === year)
   )
 
-  const bonusRate = restaurant?.bonusRate ?? 10
-  const dividendRate = restaurant?.dividendRate ?? 72.26
+  const bonusRate = company?.bonusRate ?? 10
+  const dividendRate = company?.dividendRate ?? 72.26
 
   const revenue = orders.reduce((s, o) => s + o.total, 0)
   const employeeStats = employees.map(emp => {
@@ -106,7 +106,7 @@ export async function buildReportData(
   const chargesNonDeductible = charges.filter(c => c.type === "NON_DEDUCTIBLE").reduce((s, c) => s + c.amount, 0)
   const afterSalaries = revenue - totalSalaries
   const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit, { taxType: (restaurant as any)?.taxType, taxBrackets: (restaurant as any)?.taxBrackets }) : 0
+  const taxes = grossProfit > 0 ? calculateTax(grossProfit, { taxType: (company as any)?.taxType, taxBrackets: (company as any)?.taxBrackets }) : 0
   const netProfit = grossProfit - taxes
   const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
   const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
@@ -142,7 +142,7 @@ export async function buildReportData(
   })
 
   return {
-    restaurantName, currency, weekNumber: week, year,
+    companyName, currency, weekNumber: week, year,
     weekStart: formatDate(start), weekEnd: formatDate(end),
     revenue, totalSalaries, chargesDeductible, chargesNonDeductible,
     afterSalaries, grossProfit, taxes, netProfit, bonusTotal,

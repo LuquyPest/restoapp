@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!await checkApiPageAccess(session, "stock", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const ingredients = await prisma.ingredient.findMany({
-    where: { restaurantId: session.user.restaurantId },
+    where: { companyId: session.user.companyId },
     orderBy: { name: "asc" },
   })
   return NextResponse.json(ingredients)
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const ingredient = await prisma.ingredient.create({
     data: {
-      restaurantId: session.user.restaurantId,
+      companyId: session.user.companyId,
       name: parsed.data.name,
       quantity: parsed.data.quantity,
       minQuantity: parsed.data.minQuantity,

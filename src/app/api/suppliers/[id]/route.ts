@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!["OWNER", "MANAGER"].includes(session.user.role)) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
-  const supplier = await prisma.supplier.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
+  const supplier = await prisma.supplier.findFirst({ where: { id, companyId: session.user.companyId } })
   if (!supplier) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const body = await req.json()
@@ -44,7 +44,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
   const supplier = await prisma.supplier.findFirst({
-    where: { id, restaurantId: session.user.restaurantId },
+    where: { id, companyId: session.user.companyId },
     include: { _count: { select: { invoices: true } } },
   })
   if (!supplier) return NextResponse.json({ error: "Introuvable" }, { status: 404 })

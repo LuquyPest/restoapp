@@ -12,13 +12,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDate } from "@/lib/utils"
+import { COMPANY_TYPES, COMPANY_TYPE_LABELS, type CompanyType } from "@/lib/business-types"
 
 interface TaxBracket { min: number; max?: number; rate: number }
-interface RestaurantUser { email: string; name: string | null }
-interface Restaurant {
-  id: string; name: string; currency: string; taxType: string; taxBrackets: string | null; createdAt: Date
+interface CompanyUser { email: string; name: string | null }
+interface Company {
+  id: string; name: string; type: CompanyType; currency: string; taxType: string; taxBrackets: string | null; createdAt: Date
   _count: { employees: number; orders: number }
-  users: RestaurantUser[]
+  users: CompanyUser[]
+}
+
+function CompanyTypeSelector({ value, onChange }: { value: CompanyType; onChange: (v: CompanyType) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Type d'entreprise</Label>
+      <Select value={value} onValueChange={v => onChange(v as CompanyType)}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {COMPANY_TYPES.map(t => <SelectItem key={t} value={t}>{COMPANY_TYPE_LABELS[t]}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  )
 }
 
 function slugify(s: string) {
@@ -90,19 +105,19 @@ function BracketsEditor({ brackets, onChange }: { brackets: TaxBracket[]; onChan
   )
 }
 
-export default function AdminClient({ restaurants: initial }: { restaurants: Restaurant[] }) {
+export default function AdminClient({ companies: initial }: { companies: Company[] }) {
   const router = useRouter()
-  const [restaurants, setRestaurants] = useState(initial)
+  const [companies, setCompanies] = useState(initial)
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [error, setError] = useState("")
-  const [createdInfo, setCreatedInfo] = useState<{ email: string; password: string; restaurant: string } | null>(null)
+  const [createdInfo, setCreatedInfo] = useState<{ email: string; password: string; company: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
 
-  const [form, setForm] = useState({ name: "", ownerName: "", currency: "$", taxType: "TYPE3" })
+  const [form, setForm] = useState<{ name: string; ownerName: string; type: CompanyType; currency: string; taxType: string }>({ name: "", ownerName: "", type: "RESTO_BAR", currency: "$", taxType: "TYPE3" })
   const [createBrackets, setCreateBrackets] = useState<TaxBracket[]>([])
 
   const [editForm, setEditForm] = useState({ taxType: "TYPE3", taxBrackets: [] as TaxBracket[] })
@@ -111,7 +126,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
     ? `${slugifyOwner(form.ownerName)}@${slugify(form.name)}.com`
     : ""
 
-  function openEdit(r: Restaurant) {
+  function openEdit(r: Company) {
     setEditId(r.id)
     let brackets: TaxBracket[] = []
     if (r.taxBrackets) { try { brackets = JSON.parse(r.taxBrackets) } catch {} }
@@ -121,7 +136,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
   async function create() {
     setLoading(true); setError("")
     try {
-      const res = await fetch("/api/admin/restaurants", {
+      const res = await fetch("/api/admin/companies", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
@@ -130,12 +145,12 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erreur")
-      setCreatedInfo({ email: data.email, password: data.password, restaurant: data.restaurant.name })
-      setForm({ name: "", ownerName: "", currency: "$", taxType: "TYPE3" })
+      setCreatedInfo({ email: data.email, password: data.password, company: data.company.name })
+      setForm({ name: "", ownerName: "", type: "RESTO_BAR", currency: "$", taxType: "TYPE3" })
       setCreateBrackets([])
       setModal(false)
-      const listRes = await fetch("/api/admin/restaurants")
-      if (listRes.ok) setRestaurants(await listRes.json())
+      const listRes = await fetch("/api/admin/companies")
+      if (listRes.ok) setCompanies(await listRes.json())
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }
@@ -143,7 +158,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
   async function saveEdit() {
     if (!editId) return
     setLoading(true)
-    await fetch(`/api/admin/restaurants/${editId}`, {
+    await fetch(`/api/admin/companies/${editId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         taxType: editForm.taxType,
@@ -151,17 +166,17 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       }),
     })
     setEditId(null); setLoading(false)
-    const listRes = await fetch("/api/admin/restaurants")
-    if (listRes.ok) setRestaurants(await listRes.json())
+    const listRes = await fetch("/api/admin/companies")
+    if (listRes.ok) setCompanies(await listRes.json())
   }
 
-  async function deleteRestaurant() {
+  async function deleteCompany() {
     if (!deleteId) return
     setLoading(true)
-    await fetch(`/api/admin/restaurants/${deleteId}`, { method: "DELETE" })
+    await fetch(`/api/admin/companies/${deleteId}`, { method: "DELETE" })
     setDeleteId(null); setLoading(false)
-    const listRes = await fetch("/api/admin/restaurants")
-    if (listRes.ok) setRestaurants(await listRes.json())
+    const listRes = await fetch("/api/admin/companies")
+    if (listRes.ok) setCompanies(await listRes.json())
   }
 
   async function logout() {
@@ -171,7 +186,7 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
 
   function copyCredentials() {
     if (!createdInfo) return
-    navigator.clipboard.writeText(`Restaurant : ${createdInfo.restaurant}\nEmail : ${createdInfo.email}\nMot de passe : ${createdInfo.password}`)
+    navigator.clipboard.writeText(`Établissement : ${createdInfo.company}\nEmail : ${createdInfo.email}\nMot de passe : ${createdInfo.password}`)
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
@@ -202,31 +217,32 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       <main className="p-8 max-w-5xl mx-auto space-y-6">
         <div className="grid grid-cols-3 gap-4">
           <Card><CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Restaurants</p>
-            <p className="text-3xl font-bold text-primary">{restaurants.length}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Établissements</p>
+            <p className="text-3xl font-bold text-primary">{companies.length}</p>
           </CardContent></Card>
           <Card><CardContent className="p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Employés total</p>
-            <p className="text-3xl font-bold">{restaurants.reduce((s, r) => s + r._count.employees, 0)}</p>
+            <p className="text-3xl font-bold">{companies.reduce((s, r) => s + r._count.employees, 0)}</p>
           </CardContent></Card>
           <Card><CardContent className="p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Commandes total</p>
-            <p className="text-3xl font-bold">{restaurants.reduce((s, r) => s + r._count.orders, 0)}</p>
+            <p className="text-3xl font-bold">{companies.reduce((s, r) => s + r._count.orders, 0)}</p>
           </CardContent></Card>
         </div>
 
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-            <CardTitle>Restaurants ({restaurants.length})</CardTitle>
+            <CardTitle>Établissements ({companies.length})</CardTitle>
             <Button onClick={() => { setModal(true); setError("") }}>
-              <Plus className="h-4 w-4" /> Créer un restaurant
+              <Plus className="h-4 w-4" /> Créer un établissement
             </Button>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Restaurant</TableHead>
+                  <TableHead>Établissement</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Patron</TableHead>
                   <TableHead>Imposition</TableHead>
                   <TableHead>Employés</TableHead>
@@ -236,9 +252,9 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {restaurants.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucun restaurant</TableCell></TableRow>
-                ) : restaurants.map(r => (
+                {companies.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">Aucun établissement</TableCell></TableRow>
+                ) : companies.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -250,6 +266,9 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
                           <p className="text-xs text-muted-foreground">{r.currency}</p>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-[10px]">{COMPANY_TYPE_LABELS[r.type]}</Badge>
                     </TableCell>
                     <TableCell>
                       {r.users[0] ? (
@@ -297,16 +316,17 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       {/* Create modal */}
       <Dialog open={modal} onOpenChange={v => !v && setModal(false)}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Créer un restaurant</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Créer un établissement</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Nom du restaurant</Label>
+              <Label>Nom de l'établissement</Label>
               <Input placeholder="Coffee Noir, Bella Vista..." value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Nom du patron</Label>
               <Input placeholder="Vittoria Fonelli" value={form.ownerName} onChange={e => setForm({ ...form, ownerName: e.target.value })} />
             </div>
+            <CompanyTypeSelector value={form.type} onChange={v => setForm({ ...form, type: v })} />
             <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-600 dark:text-blue-400">
               Le mot de passe est généré automatiquement et affiché une seule fois après création.
             </div>
@@ -352,12 +372,12 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       {/* Credentials display after creation */}
       <Dialog open={!!createdInfo} onOpenChange={v => !v && setCreatedInfo(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>✅ Restaurant créé</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>✅ Établissement créé</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border bg-emerald-500/5 border-emerald-500/20 p-4 space-y-3">
               <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Restaurant</p>
-                <p className="font-semibold">{createdInfo?.restaurant}</p>
+                <p className="text-xs text-muted-foreground mb-0.5">Établissement</p>
+                <p className="font-semibold">{createdInfo?.company}</p>
               </div>
               <Separator />
               <div>
@@ -383,14 +403,14 @@ export default function AdminClient({ restaurants: initial }: { restaurants: Res
       {/* Delete confirmation */}
       <Dialog open={!!deleteId} onOpenChange={v => !v && setDeleteId(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Supprimer ce restaurant ?</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Supprimer cet établissement ?</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
               ⚠️ Cette action est irréversible. Toutes les données seront définitivement supprimées.
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setDeleteId(null)}>Annuler</Button>
-              <Button variant="destructive" className="flex-1" onClick={deleteRestaurant} disabled={loading}>
+              <Button variant="destructive" className="flex-1" onClick={deleteCompany} disabled={loading}>
                 {loading ? "Suppression..." : "Supprimer définitivement"}
               </Button>
             </div>

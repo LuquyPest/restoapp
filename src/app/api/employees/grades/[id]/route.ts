@@ -12,13 +12,13 @@ const schema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-  const grade = await prisma.grade.findFirst({ where: { id, restaurantId } })
+  const grade = await prisma.grade.findFirst({ where: { id, companyId } })
   if (!grade) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   const updated = await prisma.grade.update({ where: { id }, data: parsed.data })
   return NextResponse.json(updated)
@@ -27,12 +27,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
-  const grade = await prisma.grade.findFirst({ where: { id, restaurantId } })
+  const grade = await prisma.grade.findFirst({ where: { id, companyId } })
   if (!grade) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
-  const inUse = await prisma.employee.count({ where: { gradeId: id, restaurantId, isActive: true } })
+  const inUse = await prisma.employee.count({ where: { gradeId: id, companyId, isActive: true } })
   if (inUse > 0) {
     return NextResponse.json({ error: "Des employés actifs utilisent ce grade" }, { status: 409 })
   }

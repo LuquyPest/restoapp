@@ -8,7 +8,7 @@ import { getISOWeek } from "@/lib/utils"
 export default async function ProductSalesPage({ searchParams }: { searchParams: Promise<{ week?: string; year?: string }> }) {
   const session = await auth()
   if (!session) redirect("/login")
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
   await requirePageAccess(session, "sales/products", ["OWNER", "MANAGER"])
 
   const sp = await searchParams
@@ -16,10 +16,10 @@ export default async function ProductSalesPage({ searchParams }: { searchParams:
   const week = parseInt(sp.week ?? String(getISOWeek(now)))
   const year = parseInt(sp.year ?? String(now.getFullYear()))
 
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
 
   const orderLines = await prisma.orderLine.findMany({
-    where: { order: { restaurantId, status: "CONFIRMED", weekNumber: week, year } },
+    where: { order: { companyId, status: "CONFIRMED", weekNumber: week, year } },
     include: { menuItem: true },
   })
 
@@ -37,7 +37,7 @@ export default async function ProductSalesPage({ searchParams }: { searchParams:
   return (
     <ProductSalesClient
       products={products}
-      currency={restaurant?.currency ?? "$"}
+      currency={company?.currency ?? "$"}
       selectedWeek={week}
       selectedYear={year}
       currentWeek={getISOWeek(now)}

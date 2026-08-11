@@ -6,23 +6,23 @@ import OrdersClient from "@/components/orders/OrdersClient"
 export default async function OrdersPage() {
   const session = await auth()
   if (!session) redirect("/login")
-  const { restaurantId, role } = session.user
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
-  if (!restaurant) redirect("/login")
+  const { companyId, role } = session.user
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
+  if (!company) redirect("/login")
 
   const now = new Date()
 
   const [menuItems, partners, loyaltyCards, employee, employees] = await Promise.all([
-    prisma.menuItem.findMany({ where: { restaurantId, isAvailable: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
-    prisma.partner.findMany({ where: { restaurantId, isActive: true }, orderBy: { name: "asc" } }),
-    prisma.loyaltyCard.findMany({ where: { restaurantId, isActive: true, expiresAt: { gte: now } }, orderBy: { lastName: "asc" } }),
+    prisma.menuItem.findMany({ where: { companyId, isAvailable: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
+    prisma.partner.findMany({ where: { companyId, isActive: true }, orderBy: { name: "asc" } }),
+    prisma.loyaltyCard.findMany({ where: { companyId, isActive: true, expiresAt: { gte: now } }, orderBy: { lastName: "asc" } }),
     prisma.employee.findFirst({ where: { userId: session.user.id } }),
     role !== "EMPLOYEE"
-      ? prisma.employee.findMany({ where: { restaurantId, isActive: true }, orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } })
+      ? prisma.employee.findMany({ where: { companyId, isActive: true }, orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } })
       : Promise.resolve([]),
   ])
 
-  const ordersWhere = role === "EMPLOYEE" && employee ? { employeeId: employee.id } : { restaurantId }
+  const ordersWhere = role === "EMPLOYEE" && employee ? { employeeId: employee.id } : { companyId }
   const orders = await prisma.order.findMany({
     where: ordersWhere,
     include: {
@@ -42,7 +42,7 @@ export default async function OrdersPage() {
       partners={partners}
       loyaltyCards={loyaltyCards as any}
       role={role}
-      currency={restaurant.currency}
+      currency={company.currency}
       employees={employees}
     />
   )

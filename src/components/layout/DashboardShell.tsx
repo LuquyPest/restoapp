@@ -4,14 +4,16 @@ import Sidebar from "./Sidebar"
 import SearchBar from "./SearchBar"
 import Link from "next/link"
 import { Menu, NotebookPen } from "lucide-react"
+import type { CompanyType } from "@/lib/business-types"
 
 interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: string }
 
 interface Props {
   userRole: string
-  restaurantName: string
+  companyName: string
+  companyType: CompanyType
   userName: string
-  restaurantLogo?: string | null
+  companyLogo?: string | null
   gradePermissions?: string[] | null
   accessRoleName?: string | null
   initialNotifications?: NotificationItem[]
@@ -21,9 +23,10 @@ interface Props {
 export default function DashboardShell({
   children,
   userRole,
-  restaurantName,
+  companyName,
+  companyType,
   userName,
-  restaurantLogo,
+  companyLogo,
   gradePermissions = null,
   accessRoleName = null,
   initialNotifications = [],
@@ -40,9 +43,10 @@ export default function DashboardShell({
       )}
       <Sidebar
         userRole={userRole}
-        restaurantName={restaurantName}
+        companyName={companyName}
+        companyType={companyType}
         userName={userName}
-        restaurantLogo={restaurantLogo}
+        companyLogo={companyLogo}
         gradePermissions={gradePermissions}
         accessRoleName={accessRoleName}
         initialNotifications={initialNotifications}
@@ -58,7 +62,7 @@ export default function DashboardShell({
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex-1 min-w-0"><SearchBar /></div>
+          <div className="flex-1 min-w-0"><SearchBar companyType={companyType} /></div>
           <Link
             href="/patchnotes"
             className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"

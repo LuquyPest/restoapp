@@ -40,7 +40,7 @@ export default function LoginPage() {
             RestoCompta
           </h1>
           <p className="text-violet-200/75 text-[1.05rem] leading-relaxed mb-10">
-            La plateforme tout-en-un pour piloter votre restaurant — de la prise de commande au bilan comptable.
+            La plateforme tout-en-un pour piloter votre company — de la prise de commande au bilan comptable.
           </p>
 
           <div className="grid grid-cols-2 gap-3">

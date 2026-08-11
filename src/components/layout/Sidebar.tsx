@@ -18,53 +18,58 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BUSINESS_VOCAB, type CompanyType } from "@/lib/business-types"
 
-const navGroups = [
-  {
-    label: "Principal",
-    items: [
-      { key: "dashboard", label: "Dashboard",       href: "/dashboard", icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
-      { key: "orders",    label: "Commandes",       href: "/orders",    icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
-      { key: "loyalty",   label: "Cartes fidélité", href: "/loyalty",   icon: CreditCard,      roles: ["OWNER","MANAGER"] },
-    ],
-  },
-  {
-    label: "RH",
-    items: [
-      { key: "employees", label: "Employés", href: "/employees", icon: Users, roles: ["OWNER","MANAGER"] },
-    ],
-  },
-  {
-    label: "Analyse",
-    items: [
-      { key: "report",         label: "Bilan",            href: "/report",         icon: BarChart3,  roles: ["OWNER","MANAGER"] },
-      { key: "sales",          label: "Liste des ventes", href: "/sales",          icon: TrendingUp, roles: ["OWNER","MANAGER"] },
-      { key: "sales/products", label: "Ventes produits",  href: "/sales/products", icon: BarChart3,  roles: ["OWNER","MANAGER"] },
-    ],
-  },
-  {
-    label: "Gestion",
-    items: [
-      { key: "menu",      label: "Carte",        href: "/menu",      icon: UtensilsCrossed, roles: ["OWNER","MANAGER"] },
-      { key: "stock",     label: "Stock",        href: "/stock",     icon: Package,         roles: ["OWNER"] },
-      { key: "partners",  label: "Partenaires",  href: "/partners",  icon: Handshake,       roles: ["OWNER","MANAGER"] },
-      { key: "suppliers", label: "Fournisseurs", href: "/suppliers", icon: Truck,           roles: ["OWNER","MANAGER"] },
-      { key: "invoices",  label: "Factures",     href: "/invoices",  icon: FileText,        roles: ["OWNER","MANAGER"] },
-      { key: "charges",   label: "Charges",      href: "/charges",   icon: Receipt,         roles: ["OWNER","MANAGER"] },
-    ],
-  },
-  {
-    label: "Système",
-    items: [
-      { key: "settings", label: "Paramètres", href: "/settings", icon: Settings, roles: ["OWNER"] },
-    ],
-  },
-]
+function getNavGroups(companyType: CompanyType) {
+  const vocab = BUSINESS_VOCAB[companyType]
+  return [
+    {
+      label: "Principal",
+      items: [
+        { key: "dashboard", label: "Dashboard",       href: "/dashboard", icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
+        { key: "orders",    label: "Commandes",       href: "/orders",    icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
+        { key: "loyalty",   label: "Cartes fidélité", href: "/loyalty",   icon: CreditCard,      roles: ["OWNER","MANAGER"] },
+      ],
+    },
+    {
+      label: "RH",
+      items: [
+        { key: "employees", label: "Employés", href: "/employees", icon: Users, roles: ["OWNER","MANAGER"] },
+      ],
+    },
+    {
+      label: "Analyse",
+      items: [
+        { key: "report",         label: "Bilan",            href: "/report",         icon: BarChart3,  roles: ["OWNER","MANAGER"] },
+        { key: "sales",          label: "Liste des ventes", href: "/sales",          icon: TrendingUp, roles: ["OWNER","MANAGER"] },
+        { key: "sales/products", label: "Ventes produits",  href: "/sales/products", icon: BarChart3,  roles: ["OWNER","MANAGER"] },
+      ],
+    },
+    {
+      label: "Gestion",
+      items: [
+        { key: "menu",      label: vocab.menuNavLabel,  href: "/menu",      icon: UtensilsCrossed, roles: ["OWNER","MANAGER"] },
+        { key: "stock",     label: vocab.stockNavLabel, href: "/stock",     icon: Package,         roles: ["OWNER"] },
+        { key: "partners",  label: "Partenaires",       href: "/partners",  icon: Handshake,       roles: ["OWNER","MANAGER"] },
+        { key: "suppliers", label: "Fournisseurs",      href: "/suppliers", icon: Truck,           roles: ["OWNER","MANAGER"] },
+        { key: "invoices",  label: "Factures",          href: "/invoices",  icon: FileText,        roles: ["OWNER","MANAGER"] },
+        { key: "charges",   label: "Charges",           href: "/charges",   icon: Receipt,         roles: ["OWNER","MANAGER"] },
+      ],
+    },
+    {
+      label: "Système",
+      items: [
+        { key: "settings", label: "Paramètres", href: "/settings", icon: Settings, roles: ["OWNER"] },
+      ],
+    },
+  ]
+}
 
 interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: Date | string }
-interface Props { userRole: string; restaurantName: string; userName: string; restaurantLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void }
+interface Props { userRole: string; companyName: string; companyType: CompanyType; userName: string; companyLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void }
 
-export default function Sidebar({ userRole, restaurantName, userName, restaurantLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose }: Props) {
+export default function Sidebar({ userRole, companyName, companyType, userName, companyLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose }: Props) {
+  const navGroups = getNavGroups(companyType)
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications)
@@ -120,12 +125,12 @@ export default function Sidebar({ userRole, restaurantName, userName, restaurant
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col border-b px-4 py-3 gap-2">
-          {restaurantLogo
-            ? <img src={restaurantLogo} alt={restaurantName} width={44} height={44} className="rounded-lg object-contain" />
+          {companyLogo
+            ? <img src={companyLogo} alt={companyName} width={44} height={44} className="rounded-lg object-contain" />
             : <AppLogo size={44} />
           }
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-sidebar-foreground">{restaurantName}</p>
+            <p className="truncate text-sm font-semibold text-sidebar-foreground">{companyName}</p>
             <Badge variant="secondary" className="mt-0.5 h-4 text-[10px] px-1.5">{roleLabel}</Badge>
           </div>
         </div>

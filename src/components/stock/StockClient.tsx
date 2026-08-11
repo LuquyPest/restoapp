@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { BUSINESS_VOCAB, type CompanyType } from "@/lib/business-types"
 
 interface Ingredient {
   id: string
@@ -20,9 +21,11 @@ interface Ingredient {
 
 const EMPTY = { name: "", quantity: "0", minQuantity: "0", imageUrl: "" }
 
-interface Props { ingredients: Ingredient[] }
+interface Props { ingredients: Ingredient[]; companyType: CompanyType }
 
-export default function StockClient({ ingredients: initial }: Props) {
+export default function StockClient({ ingredients: initial, companyType }: Props) {
+  const vocab = BUSINESS_VOCAB[companyType]
+  const noun = vocab.ingredientNoun
   const router = useRouter()
   const [ingredients, setIngredients] = useState(initial)
   const [modal, setModal] = useState<"create" | "edit" | null>(null)
@@ -74,7 +77,7 @@ export default function StockClient({ ingredients: initial }: Props) {
   }
 
   async function remove(id: string) {
-    if (!confirm("Supprimer cet ingrédient ? Les recettes l'utilisant seront également supprimées.")) return
+    if (!confirm(`Supprimer cet(te) ${noun} ? Les recettes l'utilisant seront également supprimées.`)) return
     await fetch(`/api/stock/${id}`, { method: "DELETE" })
     setIngredients(prev => prev.filter(i => i.id !== id))
     router.refresh()
@@ -86,8 +89,8 @@ export default function StockClient({ ingredients: initial }: Props) {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Stock</h1>
-          <p className="text-sm text-muted-foreground mt-1">{ingredients.length} ingrédient{ingredients.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{vocab.stockNavLabel}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{ingredients.length} {noun}{ingredients.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
@@ -101,7 +104,7 @@ export default function StockClient({ ingredients: initial }: Props) {
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">{lowStock.length} ingrédient{lowStock.length !== 1 ? "s" : ""} en rupture ou sous le seuil</p>
+            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">{lowStock.length} {noun}{lowStock.length !== 1 ? "s" : ""} en rupture ou sous le seuil</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {lowStock.map(i => (
@@ -115,14 +118,14 @@ export default function StockClient({ ingredients: initial }: Props) {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input placeholder="Rechercher un ingrédient..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+        <Input placeholder={`Rechercher un(e) ${noun}...`} className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {filtered.length === 0 && (
         <Card className="p-16 text-center">
           <Package className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground mb-4">{ingredients.length === 0 ? "Aucun ingrédient" : "Aucun résultat"}</p>
-          {ingredients.length === 0 && <Button onClick={openCreate}>Ajouter le premier ingrédient</Button>}
+          <p className="text-muted-foreground mb-4">{ingredients.length === 0 ? `Aucun(e) ${noun}` : "Aucun résultat"}</p>
+          {ingredients.length === 0 && <Button onClick={openCreate}>Ajouter le premier {noun}</Button>}
         </Card>
       )}
 
@@ -164,7 +167,7 @@ export default function StockClient({ ingredients: initial }: Props) {
       <Dialog open={modal !== null} onOpenChange={v => !v && setModal(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{modal === "create" ? "Nouvel ingrédient" : "Modifier l'ingrédient"}</DialogTitle>
+            <DialogTitle>{modal === "create" ? `Nouvel(le) ${noun}` : `Modifier le/la ${noun}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">

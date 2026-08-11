@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
-  const existing = await prisma.ingredient.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
+  const existing = await prisma.ingredient.findFirst({ where: { id, companyId: session.user.companyId } })
   if (!existing) return NextResponse.json({ error: "Ingrédient introuvable" }, { status: 404 })
 
   const ingredient = await prisma.ingredient.update({ where: { id }, data: parsed.data })
@@ -34,7 +34,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!await checkApiPageAccess(session, "stock", ["OWNER"])) return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const { id } = await params
-  const existing = await prisma.ingredient.findFirst({ where: { id, restaurantId: session.user.restaurantId } })
+  const existing = await prisma.ingredient.findFirst({ where: { id, companyId: session.user.companyId } })
   if (!existing) return NextResponse.json({ error: "Ingrédient introuvable" }, { status: 404 })
 
   await prisma.ingredient.delete({ where: { id } })

@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
   if (session.user.role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
-  const { restaurantId } = session.user
+  const { companyId } = session.user
   const now = new Date()
   const start = new Date(now)
   start.setDate(now.getDate() - now.getDay() + 1)
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   end.setHours(23, 59, 59, 999)
 
   const employees = await prisma.employee.findMany({
-    where: { restaurantId, isActive: true },
+    where: { companyId, isActive: true },
     include: { grade: true },
   })
 

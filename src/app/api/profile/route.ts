@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest) {
       action: "PASSWORD_CHANGED",
       userId: session.user.id,
       userEmail: session.user.email ?? undefined,
-      restaurantId: session.user.restaurantId ?? undefined,
+      companyId: session.user.companyId ?? undefined,
       ip: getIp(req.headers),
     })
   }

@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 })
   }
 
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: session.user.restaurantId } })
-  if (!restaurant) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
-  if (!restaurant.webhookUrl) return NextResponse.json({ error: "Aucune URL webhook configurée" }, { status: 400 })
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } })
+  if (!company) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
+  if (!company.webhookUrl) return NextResponse.json({ error: "Aucune URL webhook configurée" }, { status: 400 })
 
   const now = new Date()
   let week = getISOWeek(now) - 1
@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
   if (week < 1) { week = 52; year-- }
 
   try {
-    const data = await buildReportData(restaurant.id, restaurant.name, restaurant.currency, week, year)
+    const data = await buildReportData(company.id, company.name, company.currency, week, year)
     const testData = { ...data, test: true }
     const html = generateReportHtml(testData, week, year)
     const htmlBuffer = Buffer.from(html, "utf-8")
-    const status = await sendWebhook(restaurant.webhookUrl, testData, htmlBuffer, week, year)
+    const status = await sendWebhook(company.webhookUrl, testData, htmlBuffer, week, year)
     if (status.startsWith("error")) {
       return NextResponse.json({ error: `Le webhook a répondu avec le statut ${status}` }, { status: 502 })
     }

@@ -6,25 +6,25 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("🌱 Démarrage du seed...")
 
-  const restaurant = await prisma.restaurant.upsert({
-    where: { id: "seed-restaurant" },
+  const company = await prisma.company.upsert({
+    where: { id: "seed-company" },
     update: {},
     create: {
-      id: "seed-restaurant",
-      name: "Mon Restaurant",
+      id: "seed-company",
+      name: "Mon Établissement",
       currency: "$",
       taxRate: 11.9,
       bonusRate: 10,
       dividendRate: 72.26,
     },
   })
-  console.log(`✅ Restaurant : ${restaurant.name}`)
+  console.log(`✅ Établissement : ${company.name}`)
 
   const grades = await Promise.all([
-    prisma.grade.upsert({ where: { id: "grade-patron" }, update: {}, create: { id: "grade-patron", name: "Patron(ne)", salaryPercent: 70, restaurantId: restaurant.id } }),
-    prisma.grade.upsert({ where: { id: "grade-manager" }, update: {}, create: { id: "grade-manager", name: "Manager", salaryPercent: 65, restaurantId: restaurant.id } }),
-    prisma.grade.upsert({ where: { id: "grade-cdi" }, update: {}, create: { id: "grade-cdi", name: "Employé CDI", salaryPercent: 65, restaurantId: restaurant.id } }),
-    prisma.grade.upsert({ where: { id: "grade-cdd" }, update: {}, create: { id: "grade-cdd", name: "Employé CDD", salaryPercent: 50, restaurantId: restaurant.id } }),
+    prisma.grade.upsert({ where: { id: "grade-patron" }, update: {}, create: { id: "grade-patron", name: "Patron(ne)", salaryPercent: 70, companyId: company.id } }),
+    prisma.grade.upsert({ where: { id: "grade-manager" }, update: {}, create: { id: "grade-manager", name: "Manager", salaryPercent: 65, companyId: company.id } }),
+    prisma.grade.upsert({ where: { id: "grade-cdi" }, update: {}, create: { id: "grade-cdi", name: "Employé CDI", salaryPercent: 65, companyId: company.id } }),
+    prisma.grade.upsert({ where: { id: "grade-cdd" }, update: {}, create: { id: "grade-cdd", name: "Employé CDD", salaryPercent: 50, companyId: company.id } }),
   ])
   console.log(`✅ ${grades.length} grades créés`)
 
@@ -37,7 +37,7 @@ async function main() {
       name: "Patron Principal",
       passwordHash: ownerHash,
       role: "OWNER",
-      restaurantId: restaurant.id,
+      companyId: company.id,
     },
   })
 

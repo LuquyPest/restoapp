@@ -9,26 +9,26 @@ export async function GET(req: NextRequest) {
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? ""
   if (q.length < 2) return NextResponse.json({ employees: [], menuItems: [], invoices: [], orders: [] })
 
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
   const search = { contains: q }
 
   const [employees, menuItems, invoices, orders] = await Promise.all([
     role !== "EMPLOYEE"
       ? prisma.employee.findMany({
-          where: { restaurantId, isActive: true, OR: [{ firstName: search }, { lastName: search }] },
+          where: { companyId, isActive: true, OR: [{ firstName: search }, { lastName: search }] },
           select: { id: true, firstName: true, lastName: true },
           take: 5,
         })
       : [],
     prisma.menuItem.findMany({
-      where: { restaurantId, deletedAt: null, OR: [{ name: search }, { category: search }] },
+      where: { companyId, deletedAt: null, OR: [{ name: search }, { category: search }] },
       select: { id: true, name: true, category: true, price: true },
       take: 5,
     }),
     role !== "EMPLOYEE"
       ? prisma.invoice.findMany({
           where: {
-            restaurantId, deletedAt: null,
+            companyId, deletedAt: null,
             OR: [{ reference: search }, { supplier: { name: search } }],
           },
           include: { supplier: { select: { name: true } } },
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       : [],
     prisma.order.findMany({
       where: {
-        restaurantId,
+        companyId,
         OR: [
           { employee: { OR: [{ firstName: search }, { lastName: search }] } },
           { note: search },

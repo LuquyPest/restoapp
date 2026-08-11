@@ -7,12 +7,12 @@ export default async function PayrollPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
-  const { restaurantId, role } = session.user
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
+  const { companyId, role } = session.user
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
 
   const where = role === "EMPLOYEE"
-    ? { restaurantId, employee: { userId: session.user.id } }
-    : { restaurantId }
+    ? { companyId, employee: { userId: session.user.id } }
+    : { companyId }
 
   const payrolls = await prisma.payroll.findMany({
     where,
@@ -22,7 +22,7 @@ export default async function PayrollPage() {
 
   const employees = role !== "EMPLOYEE"
     ? await prisma.employee.findMany({
-        where: { restaurantId, isActive: true },
+        where: { companyId, isActive: true },
         include: { grade: true },
         orderBy: { firstName: "asc" },
       })
@@ -33,8 +33,8 @@ export default async function PayrollPage() {
       payrolls={payrolls as any}
       employees={employees as any}
       role={role}
-      currency={restaurant?.currency ?? "$"}
-      defaultTaxRate={restaurant?.taxRate ?? 0}
+      currency={company?.currency ?? "$"}
+      defaultTaxRate={company?.taxRate ?? 0}
     />
   )
 }

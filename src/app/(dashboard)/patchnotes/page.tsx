@@ -98,7 +98,7 @@ const NOTES = [
       { type: "feat",  text: "Bilan hebdomadaire complet avec export HTML" },
       { type: "feat",  text: "Analyse des ventes par semaine/produit" },
       { type: "feat",  text: "Paramètres : devise, logo, taux prime/dividende, webhook bilan" },
-      { type: "feat",  text: "Panel Super Admin : gestion des restaurants, logs d'audit en temps réel" },
+      { type: "feat",  text: "Panel Super Admin : gestion des établissements, logs d'audit en temps réel" },
       { type: "feat",  text: "Sécurité : rate limiting, lockout compte, CSRF, SSRF, audit logs" },
       { type: "feat",  text: "Rôles d'accès personnalisés par utilisateur (OWNER uniquement)" },
     ],

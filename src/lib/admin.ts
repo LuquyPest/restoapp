@@ -31,7 +31,7 @@ export async function getAdminSession() {
   return verifyAdminToken(token)
 }
 
-export function slugifyRestaurantName(name: string) {
+export function slugifyCompanyName(name: string) {
   return name
     .toLowerCase()
     .normalize("NFD")

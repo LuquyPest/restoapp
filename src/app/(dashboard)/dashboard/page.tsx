@@ -24,7 +24,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const session = await auth()
   if (!session) redirect("/login")
 
-  const { restaurantId, role } = session.user
+  const { companyId, role } = session.user
   const sp = await searchParams
   const now = new Date()
   const currentWeek = getISOWeek(now)
@@ -33,8 +33,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const selectedWeek = parseInt(sp.week ?? String(currentWeek))
   const selectedYear = parseInt(sp.year ?? String(currentYear))
 
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
-  if (!restaurant) redirect("/login")
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
+  if (!company) redirect("/login")
 
   if (role === "EMPLOYEE") {
     const employee = await prisma.employee.findFirst({
@@ -73,7 +73,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         monthRevenue={monthRevenue}
         weekSalary={weekSalary}
         monthSalary={monthSalary}
-        currency={restaurant.currency}
+        currency={company.currency}
         weekOrderCount={weekOrdersWithLines.length}
         monthOrderCount={monthOrders.length}
         dailyData={dailyData}
@@ -95,23 +95,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { start: monthStart, end: monthEnd } = getMonthRange()
 
   const [weekOrders, prevWeekOrders, totalEmployees, pendingInvoices, recentOrders, payrolls, trend8orders, monthLines] = await Promise.all([
-    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: selectedWeek, year: selectedYear } }),
-    prisma.order.findMany({ where: { restaurantId, status: "CONFIRMED", weekNumber: prevWeek, year: prevWeekYear } }),
-    prisma.employee.count({ where: { restaurantId, isActive: true } }),
-    prisma.invoice.count({ where: { restaurantId, status: { in: ["PENDING", "OVERDUE"] } } }),
+    prisma.order.findMany({ where: { companyId, status: "CONFIRMED", weekNumber: selectedWeek, year: selectedYear } }),
+    prisma.order.findMany({ where: { companyId, status: "CONFIRMED", weekNumber: prevWeek, year: prevWeekYear } }),
+    prisma.employee.count({ where: { companyId, isActive: true } }),
+    prisma.invoice.count({ where: { companyId, status: { in: ["PENDING", "OVERDUE"] } } }),
     prisma.order.findMany({
-      where: { restaurantId },
+      where: { companyId },
       include: { employee: true, lines: { include: { menuItem: true } } },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    prisma.payroll.findMany({ where: { restaurantId, year: selectedYear, weekNumber: selectedWeek } }),
+    prisma.payroll.findMany({ where: { companyId, year: selectedYear, weekNumber: selectedWeek } }),
     prisma.order.findMany({
-      where: { restaurantId, status: "CONFIRMED", OR: weeks8.map(w => ({ weekNumber: w.week, year: w.year })) },
+      where: { companyId, status: "CONFIRMED", OR: weeks8.map(w => ({ weekNumber: w.week, year: w.year })) },
       select: { weekNumber: true, year: true, total: true },
     }),
     prisma.orderLine.findMany({
-      where: { order: { restaurantId, status: "CONFIRMED", createdAt: { gte: monthStart, lte: monthEnd } } },
+      where: { order: { companyId, status: "CONFIRMED", createdAt: { gte: monthStart, lte: monthEnd } } },
       select: { quantity: true, menuItem: { select: { name: true } } },
     }),
   ])
@@ -155,7 +155,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       weekOrderCount={weekOrders.length}
       prevWeekOrderCount={prevWeekOrders.length}
       recentOrders={recentOrders as any}
-      currency={restaurant.currency}
+      currency={company.currency}
       dailyData={dailyData}
       weeklyTrend={weeklyTrend}
       topItems={topItems}

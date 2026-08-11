@@ -14,7 +14,7 @@ export function generateReportHtml(data: any, week: number, year: number): strin
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Bilan S${String(week).padStart(2,"0")} ${year} — ${esc(data.restaurantName)}</title>
+<title>Bilan S${String(week).padStart(2,"0")} ${year} — ${esc(data.companyName)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px; }
@@ -51,7 +51,7 @@ export function generateReportHtml(data: any, week: number, year: number): strin
 </style>
 </head>
 <body>
-<h1>${esc(data.restaurantName)} — Bilan hebdomadaire</h1>
+<h1>${esc(data.companyName)} — Bilan hebdomadaire</h1>
 <p class="subtitle">Semaine S${String(week).padStart(2,"0")} ${year} · Du ${data.weekStart} au ${data.weekEnd} · Généré le ${new Date().toLocaleDateString("fr-FR")}</p>
 
 <div class="grid3">
@@ -204,7 +204,7 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
 </tbody></table>
 </div>
 
-<div class="footer">Bilan généré le ${new Date().toLocaleString("fr-FR")} · ${esc(data.restaurantName)} · Semaine ${week} ${year}</div>
+<div class="footer">Bilan généré le ${new Date().toLocaleString("fr-FR")} · ${esc(data.companyName)} · Semaine ${week} ${year}</div>
 </body>
 </html>`
 }

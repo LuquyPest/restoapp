@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
   const invoices = await prisma.invoice.findMany({
-    where: { restaurantId: session.user.restaurantId, deletedAt: null },
+    where: { companyId: session.user.companyId, deletedAt: null },
     include: { supplier: true },
     orderBy: { createdAt: "desc" },
   })
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const body = await req.json()
@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
 
   const supplier = await prisma.supplier.findFirst({
-    where: { id: parsed.data.supplierId, restaurantId },
+    where: { id: parsed.data.supplierId, companyId },
   })
   if (!supplier) return NextResponse.json({ error: "Fournisseur introuvable" }, { status: 404 })
 
   const invoice = await prisma.invoice.create({
     data: {
-      restaurantId,
+      companyId,
       supplierId: parsed.data.supplierId,
       reference: parsed.data.reference,
       amount: parsed.data.amount,

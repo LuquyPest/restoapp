@@ -23,13 +23,13 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId, deletedAt: null } })
+  const item = await prisma.menuItem.findFirst({ where: { id, companyId, deletedAt: null } })
   if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
 
   const { recipeLines, ...fields } = parsed.data
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (recipeLines.length > 0) {
       const ingredientIds = recipeLines.map(l => l.ingredientId)
       const validIngredients = await prisma.ingredient.findMany({
-        where: { id: { in: ingredientIds }, restaurantId },
+        where: { id: { in: ingredientIds }, companyId },
         select: { id: true },
       })
       if (validIngredients.length !== ingredientIds.length) {
@@ -72,17 +72,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { role, restaurantId } = session.user
+  const { role, companyId } = session.user
   if (role === "EMPLOYEE") return NextResponse.json({ error: "Interdit" }, { status: 403 })
   const { id } = await params
-  const item = await prisma.menuItem.findFirst({ where: { id, restaurantId, deletedAt: null } })
+  const item = await prisma.menuItem.findFirst({ where: { id, companyId, deletedAt: null } })
   if (!item) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
   await prisma.menuItem.update({ where: { id }, data: { deletedAt: new Date() } })
   await log({
     action: "MENU_ITEM_DELETED",
     userId: session.user.id,
     userEmail: session.user.email ?? undefined,
-    restaurantId,
+    companyId,
     ip: getIp(req.headers),
     metadata: { itemId: id, name: item.name, price: item.price },
   })
