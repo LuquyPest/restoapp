@@ -166,6 +166,8 @@ model Employee {
   company          Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders           Order[]
+  claimedOrders    Order[]            @relation("OrderClaimedBy")
+  closedOrders     Order[]            @relation("OrderClosedBy")
   payrolls         Payroll[]
   messages         EmployeeMessage[]
   documents        EmployeeDocument[]
@@ -328,16 +330,26 @@ model Order {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   loyaltyCardId  String?
+  orderNumber         Int?
+  customerName        String?
+  claimedByEmployeeId String?
+  claimedAt           DateTime?
+  closedByEmployeeId  String?
+  closedAt            DateTime?
   lines          OrderLine[]
   employee       Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   loyaltyCard    LoyaltyCard? @relation(fields: [loyaltyCardId], references: [id])
   partner        Partner?     @relation(fields: [partnerId], references: [id])
   company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  claimedBy      Employee?    @relation("OrderClaimedBy", fields: [claimedByEmployeeId], references: [id], onDelete: SetNull)
+  closedBy       Employee?    @relation("OrderClosedBy", fields: [closedByEmployeeId], references: [id], onDelete: SetNull)
 
   @@index([employeeId], map: "orders_employeeId_fkey")
   @@index([loyaltyCardId], map: "orders_loyaltyCardId_fkey")
   @@index([partnerId], map: "orders_partnerId_fkey")
   @@index([companyId], map: "orders_restaurantId_fkey")
+  @@index([claimedByEmployeeId])
+  @@index([closedByEmployeeId])
   @@map("orders")
 }
 
@@ -562,6 +574,9 @@ enum UserRole {
 
 enum OrderStatus {
   PENDING
+  NEW
+  CLAIMED
+  IN_PROGRESS
   CONFIRMED
   CANCELLED
 }

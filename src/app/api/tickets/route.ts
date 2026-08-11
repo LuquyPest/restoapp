@@ -7,32 +7,39 @@ import { resolveOrderPricing } from "@/lib/order-pricing"
 import { deductOrderStock } from "@/lib/order-stock"
 import { getOrCreateOrderEmployee } from "@/lib/order-employee"
 
+const TICKET_INCLUDE = {
+  employee: { select: { id: true, firstName: true, lastName: true } },
+  claimedBy: { select: { id: true, firstName: true, lastName: true } },
+  closedBy: { select: { id: true, firstName: true, lastName: true } },
+  lines: { include: { menuItem: true } },
+  partner: true,
+  loyaltyCard: true,
+} as const
+
 const createSchema = z.object({
   lines: z.array(z.object({
     menuItemId: z.string(),
     quantity: z.number().int().positive(),
   })).min(1),
+  customerName: z.string().max(100).optional(),
   note: z.string().max(500).optional(),
   partnerId: z.string().optional().nullable(),
   loyaltyCardId: z.string().optional().nullable(),
   customAdjustmentType: z.enum(["PERCENT", "FIXED"]).optional().nullable(),
   customAdjustmentValue: z.number().min(-100000).max(100000).optional().nullable(),
-  weekNumber: z.number().int().min(1).max(53).optional(),
-  year: z.number().int().min(2020).max(2099).optional(),
 })
 
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
+  const { companyId } = session.user
+
+  const company = await prisma.company.findUnique({ where: { id: companyId! }, select: { type: true } })
+  if (company?.type !== "RESTO_BAR") return NextResponse.json({ error: "Interdit" }, { status: 403 })
 
   const body = await req.json()
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
-
-  const { companyId } = session.user
-  const now = new Date()
-  const weekNumber = parsed.data.weekNumber ?? getISOWeek(now)
-  const year = parsed.data.year ?? now.getFullYear()
 
   let employee
   try {
@@ -55,7 +62,11 @@ export async function POST(req: NextRequest) {
   }
   const { priceMap, total, discountAmount, partner, loyaltyCard } = pricing
 
-  const order = await prisma.order.create({
+  const maxNumber = await prisma.order.aggregate({ where: { companyId }, _max: { orderNumber: true } })
+  const orderNumber = (maxNumber._max.orderNumber ?? 0) + 1
+
+  const now = new Date()
+  const ticket = await prisma.order.create({
     data: {
       companyId, employeeId: employee.id,
       partnerId: partner?.id ?? null,
@@ -63,9 +74,11 @@ export async function POST(req: NextRequest) {
       total, discountAmount,
       customAdjustmentType: parsed.data.customAdjustmentType ?? null,
       customAdjustmentValue: parsed.data.customAdjustmentValue ?? null,
-      status: "CONFIRMED",
+      status: "NEW",
+      orderNumber,
+      customerName: parsed.data.customerName || null,
       note: parsed.data.note,
-      weekNumber, year,
+      weekNumber: getISOWeek(now), year: now.getFullYear(),
       lines: {
         create: parsed.data.lines.map(l => ({
           menuItemId: l.menuItemId,
@@ -75,32 +88,22 @@ export async function POST(req: NextRequest) {
         })),
       },
     },
+    include: TICKET_INCLUDE,
   })
 
   await deductOrderStock(companyId!, parsed.data.lines)
 
-  return NextResponse.json(order, { status: 201 })
+  return NextResponse.json(ticket, { status: 201 })
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  const { companyId, role } = session.user
 
-  const where = role === "EMPLOYEE"
-    ? { companyId, employee: { userId: session.user.id } }
-    : { companyId }
-
-  const orders = await prisma.order.findMany({
-    where,
-    include: {
-      employee: { select: { id: true, firstName: true, lastName: true } },
-      lines: { include: { menuItem: true } },
-      partner: true,
-      loyaltyCard: true,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
+  const tickets = await prisma.order.findMany({
+    where: { companyId: session.user.companyId, status: { in: ["NEW", "CLAIMED", "IN_PROGRESS"] } },
+    include: TICKET_INCLUDE,
+    orderBy: { createdAt: "asc" },
   })
-  return NextResponse.json(orders)
+  return NextResponse.json(tickets)
 }

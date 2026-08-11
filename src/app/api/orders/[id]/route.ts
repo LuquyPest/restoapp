@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { log, getIp } from "@/lib/logger"
+import { restoreOrderStock } from "@/lib/order-stock"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -55,25 +56,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 })
 
   // Restore stock: reverse the same recipe-based deduction done at creation
-  const menuItemIds = order.lines.map(l => l.menuItemId)
-  if (menuItemIds.length > 0) {
-    const recipeLines = await prisma.recipeLine.findMany({
-      where: { menuItemId: { in: menuItemIds } },
-    })
-    if (recipeLines.length > 0) {
-      const restorations = new Map<string, number>()
-      for (const orderLine of order.lines) {
-        for (const r of recipeLines.filter(r => r.menuItemId === orderLine.menuItemId)) {
-          restorations.set(r.ingredientId, (restorations.get(r.ingredientId) ?? 0) + r.quantity * orderLine.quantity)
-        }
-      }
-      await Promise.all(
-        Array.from(restorations.entries()).map(([ingredientId, qty]) =>
-          prisma.ingredient.update({ where: { id: ingredientId }, data: { quantity: { increment: qty } } })
-        )
-      )
-    }
-  }
+  await restoreOrderStock(order.lines)
 
   await prisma.order.delete({ where: { id } })
 

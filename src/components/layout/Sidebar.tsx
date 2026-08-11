@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, Truck,
   FileText, Settings, LogOut, ChevronRight,
   TrendingUp, Receipt, Handshake, BarChart3, Sun, Moon, CreditCard, KeyRound, Package,
-  Bell, X, CheckCheck, AlertTriangle, Inbox,
+  Bell, X, CheckCheck, AlertTriangle, Inbox, Timer,
 } from "lucide-react"
 import { AppLogo } from "@/components/ui/AppLogo"
 import { signOut } from "next-auth/react"
@@ -26,9 +26,12 @@ function getNavGroups(companyType: CompanyType) {
     {
       label: "Principal",
       items: [
-        { key: "dashboard", label: "Dashboard",       href: "/dashboard", icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
-        { key: "orders",    label: "Commandes",       href: "/orders",    icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
-        { key: "loyalty",   label: "Cartes fidélité", href: "/loyalty",   icon: CreditCard,      roles: ["OWNER","MANAGER"] },
+        { key: "dashboard",   label: "Dashboard",             href: "/dashboard",   icon: LayoutDashboard, roles: ["OWNER","MANAGER","EMPLOYEE"] },
+        ...(vocab.hasLiveOrderTickets
+          ? [{ key: "take-order", label: "Prendre une commande", href: "/take-order", icon: Timer, roles: ["OWNER","MANAGER","EMPLOYEE"] }]
+          : []),
+        { key: "orders",      label: "Commandes",             href: "/orders",      icon: ShoppingBag,     roles: ["OWNER","MANAGER","EMPLOYEE"] },
+        { key: "loyalty",     label: "Cartes fidélité",       href: "/loyalty",     icon: CreditCard,      roles: ["OWNER","MANAGER"] },
       ],
     },
     {

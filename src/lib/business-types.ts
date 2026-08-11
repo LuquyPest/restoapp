@@ -18,6 +18,7 @@ interface BusinessVocab {
   searchPlaceholder: string
   searchArticleLabel: string
   defaultGrades: DefaultGrade[]
+  hasLiveOrderTickets: boolean
 }
 
 export const BUSINESS_VOCAB: Record<CompanyType, BusinessVocab> = {
@@ -35,6 +36,7 @@ export const BUSINESS_VOCAB: Record<CompanyType, BusinessVocab> = {
       { name: "Employé CDI", salaryPercent: 65 },
       { name: "Employé CDD", salaryPercent: 50 },
     ],
+    hasLiveOrderTickets: true,
   },
   GARAGE: {
     menuNavLabel: "Services & Pièces",
@@ -50,6 +52,7 @@ export const BUSINESS_VOCAB: Record<CompanyType, BusinessVocab> = {
       { name: "Mécanicien", salaryPercent: 65 },
       { name: "Apprenti", salaryPercent: 50 },
     ],
+    hasLiveOrderTickets: false,
   },
   CONCESSION: {
     menuNavLabel: "Catalogue véhicules",
@@ -65,6 +68,7 @@ export const BUSINESS_VOCAB: Record<CompanyType, BusinessVocab> = {
       { name: "Vendeur", salaryPercent: 65 },
       { name: "Stagiaire", salaryPercent: 50 },
     ],
+    hasLiveOrderTickets: false,
   },
 }
 

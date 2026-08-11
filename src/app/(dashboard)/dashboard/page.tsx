@@ -100,7 +100,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     prisma.employee.count({ where: { companyId, isActive: true } }),
     prisma.invoice.count({ where: { companyId, status: { in: ["PENDING", "OVERDUE"] } } }),
     prisma.order.findMany({
-      where: { companyId },
+      where: { companyId, status: { notIn: ["NEW", "CLAIMED", "IN_PROGRESS"] } },
       include: { employee: true, lines: { include: { menuItem: true } } },
       orderBy: { createdAt: "desc" },
       take: 10,

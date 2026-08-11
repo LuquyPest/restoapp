@@ -22,7 +22,10 @@ export default async function OrdersPage() {
       : Promise.resolve([]),
   ])
 
-  const ordersWhere = role === "EMPLOYEE" && employee ? { employeeId: employee.id } : { companyId }
+  const activeTicketFilter = { notIn: ["NEW", "CLAIMED", "IN_PROGRESS"] as ("NEW" | "CLAIMED" | "IN_PROGRESS")[] }
+  const ordersWhere = role === "EMPLOYEE" && employee
+    ? { employeeId: employee.id, status: activeTicketFilter }
+    : { companyId, status: activeTicketFilter }
   const orders = await prisma.order.findMany({
     where: ordersWhere,
     include: {
