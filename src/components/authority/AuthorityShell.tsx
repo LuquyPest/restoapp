@@ -1,11 +1,14 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { LogOut, Landmark, Bell, X, CheckCheck, AlertTriangle } from "lucide-react"
+import { LogOut, Landmark, Bell, X, CheckCheck, AlertTriangle, KeyRound } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { AppLogo } from "@/components/ui/AppLogo"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: string; link?: string | null }
@@ -15,6 +18,29 @@ export default function AuthorityShell({ roleLabel, userName, initialNotificatio
   const router = useRouter()
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [pwError, setPwError] = useState("")
+  const [pwSuccess, setPwSuccess] = useState(false)
+  const [pwLoading, setPwLoading] = useState(false)
+
+  async function changePassword() {
+    setPwError(""); setPwSuccess(false)
+    if (newPassword.length < 6) { setPwError("Le nouveau mot de passe doit faire au moins 6 caractères"); return }
+    setPwLoading(true)
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Erreur")
+      setPwSuccess(true)
+      setCurrentPassword(""); setNewPassword("")
+    } catch (e: any) { setPwError(e.message) }
+    finally { setPwLoading(false) }
+  }
 
   async function dismissOne(id: string) {
     await fetch(`/api/notifications/${id}`, { method: "DELETE" })
@@ -101,11 +127,38 @@ export default function AuthorityShell({ roleLabel, userName, initialNotificatio
         </div>
 
         <span className="text-sm text-muted-foreground hidden sm:inline">{userName}</span>
+        <Button variant="ghost" size="icon" title="Changer le mot de passe" onClick={() => { setPwOpen(true); setPwError(""); setPwSuccess(false) }}>
+          <KeyRound className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>
           <LogOut className="h-4 w-4" /> Déconnexion
         </Button>
       </header>
       <main className="p-4 md:p-8 max-w-6xl mx-auto">{children}</main>
+
+      <Dialog open={pwOpen} onOpenChange={setPwOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Changer le mot de passe</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Mot de passe actuel</Label>
+              <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nouveau mot de passe</Label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            </div>
+            {pwError && <p className="text-sm text-destructive">{pwError}</p>}
+            {pwSuccess && <p className="text-sm text-emerald-500">Mot de passe mis à jour</p>}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setPwOpen(false)}>Fermer</Button>
+              <Button className="flex-1" onClick={changePassword} disabled={pwLoading || !currentPassword || !newPassword}>
+                {pwLoading ? "..." : "Valider"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

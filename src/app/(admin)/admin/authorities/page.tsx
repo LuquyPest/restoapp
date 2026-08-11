@@ -10,7 +10,7 @@ export default async function AuthorityAccountsPage() {
 
   const users = await prisma.user.findMany({
     where: { role: { in: [...AUTHORITY_ROLES] } },
-    select: { id: true, email: true, name: true, role: true, createdAt: true },
+    select: { id: true, email: true, name: true, role: true, authorityReadOnly: true, createdAt: true },
     orderBy: [{ role: "asc" }, { createdAt: "desc" }],
   })
 

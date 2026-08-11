@@ -11,13 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { formatDate } from "@/lib/utils"
 import { AUTHORITY_ROLES, AUTHORITY_ROLE_LABELS, type AuthorityRole } from "@/lib/authority"
 
-interface AuthorityUser { id: string; email: string; name: string | null; role: AuthorityRole; createdAt: string }
+interface AuthorityUser { id: string; email: string; name: string | null; role: AuthorityRole; authorityReadOnly: boolean; createdAt: string }
 interface Props { users: AuthorityUser[] }
 
-const EMPTY = { name: "", email: "", role: "IRS" as AuthorityRole }
+const EMPTY = { name: "", email: "", role: "IRS" as AuthorityRole, authorityReadOnly: false }
 
 export default function AuthorityAccountsClient({ users: initial }: Props) {
   const router = useRouter()
@@ -59,6 +60,15 @@ export default function AuthorityAccountsClient({ users: initial }: Props) {
     await refresh()
   }
 
+  async function toggleReadOnly(u: AuthorityUser) {
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, authorityReadOnly: !u.authorityReadOnly } : x))
+    const res = await fetch(`/api/admin/authorities/${u.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorityReadOnly: !u.authorityReadOnly }),
+    })
+    if (!res.ok) setUsers(prev => prev.map(x => x.id === u.id ? { ...x, authorityReadOnly: u.authorityReadOnly } : x))
+  }
+
   function copyCredentials() {
     if (!createdInfo) return
     navigator.clipboard.writeText(`Nom : ${createdInfo.name}\nEmail : ${createdInfo.email}\nMot de passe : ${createdInfo.password}`)
@@ -89,18 +99,20 @@ export default function AuthorityAccountsClient({ users: initial }: Props) {
                   <TableHead>Nom</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Lecture seule</TableHead>
                   <TableHead>Créé le</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">Aucun compte autorité</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Aucun compte autorité</TableCell></TableRow>
                 ) : users.map(u => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-[10px]">{AUTHORITY_ROLE_LABELS[u.role]}</Badge></TableCell>
                     <TableCell className="font-mono text-xs">{u.email}</TableCell>
+                    <TableCell><Switch checked={u.authorityReadOnly} onCheckedChange={() => toggleReadOnly(u)} /></TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(u.createdAt)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteId(u.id)}>
@@ -128,6 +140,13 @@ export default function AuthorityAccountsClient({ users: initial }: Props) {
                   {AUTHORITY_ROLES.map(r => <SelectItem key={r} value={r}>{AUTHORITY_ROLE_LABELS[r]}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Compte en lecture seule</p>
+                <p className="text-xs text-muted-foreground">Consultation uniquement, ne peut ni envoyer de message ni poser de statut</p>
+              </div>
+              <Switch checked={form.authorityReadOnly} onCheckedChange={v => setForm({ ...form, authorityReadOnly: v })} />
             </div>
             <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-600 dark:text-blue-400">
               Le mot de passe est généré automatiquement et affiché une seule fois après création.
