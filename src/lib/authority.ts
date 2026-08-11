@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma"
+
 export const AUTHORITY_ROLES = ["IRS", "MAIRIE_NORD", "MAIRIE_SUD"] as const
 export type AuthorityRole = typeof AUTHORITY_ROLES[number]
 
@@ -16,4 +18,9 @@ export function authorityZone(role: AuthorityRole): "NORD" | "SUD" | null {
   if (role === "MAIRIE_NORD") return "NORD"
   if (role === "MAIRIE_SUD") return "SUD"
   return null
+}
+
+export async function getAuthorityUserIds(role: AuthorityRole): Promise<string[]> {
+  const users = await prisma.user.findMany({ where: { role }, select: { id: true } })
+  return users.map(u => u.id)
 }

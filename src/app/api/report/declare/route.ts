@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkApiPageAccess } from "@/lib/page-access"
 import { saveWeeklyReport } from "@/lib/bilan"
+import { getAuthorityUserIds } from "@/lib/authority"
+import { upsertUserNotification } from "@/lib/notifications"
 import { z } from "zod"
 
 const declareSchema = z.object({
@@ -52,6 +54,21 @@ export async function POST(req: NextRequest) {
       declaredByUserId: session.user.id,
     },
   })
+
+  const recipients = new Map<string, "IRS" | "MAIRIE_NORD" | "MAIRIE_SUD">()
+  for (const id of await getAuthorityUserIds("IRS")) recipients.set(id, "IRS")
+  if (company.mairieZone) {
+    const mairieRole = company.mairieZone === "NORD" ? "MAIRIE_NORD" : "MAIRIE_SUD"
+    for (const id of await getAuthorityUserIds(mairieRole)) recipients.set(id, mairieRole)
+  }
+  await Promise.all(Array.from(recipients.entries()).map(([userId]) =>
+    upsertUserNotification({
+      companyId: companyId!, type: "TAX_DECLARED", entitySlug: `declaration:${declaration.id}`, recipientUserId: userId,
+      title: "Nouvelle déclaration d'impôt",
+      body: `${company.name} — S${String(week).padStart(2, "0")} ${year} · impôt : ${bilan.taxes.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}`,
+      link: `/authority/companies/${companyId}`,
+    })
+  ))
 
   return NextResponse.json(declaration, { status: 201 })
 }
