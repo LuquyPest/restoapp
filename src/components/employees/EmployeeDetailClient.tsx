@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import EmployeeMessagesTab from "./EmployeeMessagesTab"
 import EmployeeDocumentsTab from "./EmployeeDocumentsTab"
 import EmployeeLeavesTab from "./EmployeeLeavesTab"
+import EmployeeWarningsTab from "./EmployeeWarningsTab"
 
 interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
@@ -23,17 +24,18 @@ interface Employee {
   accountNumber: string | null; isActive: boolean; hiredAt: Date; paidLeaveBalance: number | null
   grade: Grade; user: { id: string; email: string }
 }
-interface Props { employee: Employee; grades: Grade[]; canManage: boolean; viewerUserId: string }
+interface Props { employee: Employee; grades: Grade[]; canManage: boolean; isOwner: boolean; viewerUserId: string }
 
 const TABS = [
   { key: "info", label: "Informations" },
   { key: "messages", label: "Messages" },
   { key: "documents", label: "Documents" },
   { key: "leaves", label: "Congés" },
+  { key: "warnings", label: "Avertissements" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
-export default function EmployeeDetailClient({ employee, grades, canManage, viewerUserId }: Props) {
+export default function EmployeeDetailClient({ employee, grades, canManage, isOwner, viewerUserId }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>("info")
   const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "", paidLeaveBalance: employee.paidLeaveBalance !== null ? String(employee.paidLeaveBalance) : "" })
@@ -169,6 +171,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage, view
 
       {tab === "leaves" && (
         <EmployeeLeavesTab employeeId={employee.id} canManage={canManage} paidLeaveBalance={employee.paidLeaveBalance} />
+      )}
+
+      {tab === "warnings" && (
+        <EmployeeWarningsTab employeeId={employee.id} canManage={canManage} isOwner={isOwner} />
       )}
 
       <Dialog open={resetModal} onOpenChange={v => !v && setResetModal(false)}>

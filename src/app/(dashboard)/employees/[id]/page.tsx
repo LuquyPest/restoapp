@@ -22,5 +22,5 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   ])
   if (!employee) notFound()
 
-  return <EmployeeDetailClient employee={employee} grades={grades} canManage viewerUserId={session.user.id} />
+  return <EmployeeDetailClient employee={employee} grades={grades} canManage isOwner={session.user.role === "OWNER"} viewerUserId={session.user.id} />
 }
