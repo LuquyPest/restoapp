@@ -87,7 +87,7 @@ export default function EmployeeDetailClient({ employee, grades, canManage, isOw
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild><Link href="/employees"><ArrowLeft className="h-4 w-4" /></Link></Button>
+        <Button variant="ghost" size="icon" asChild><Link href={canManage ? "/employees" : "/dashboard"}><ArrowLeft className="h-4 w-4" /></Link></Button>
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
           {initials}
         </div>

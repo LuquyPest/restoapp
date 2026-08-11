@@ -17,6 +17,7 @@ interface Props {
   gradePermissions?: string[] | null
   accessRoleName?: string | null
   initialNotifications?: NotificationItem[]
+  hasEmployeeRecord?: boolean
   children: React.ReactNode
 }
 
@@ -30,6 +31,7 @@ export default function DashboardShell({
   gradePermissions = null,
   accessRoleName = null,
   initialNotifications = [],
+  hasEmployeeRecord = false,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -52,6 +54,7 @@ export default function DashboardShell({
         initialNotifications={initialNotifications}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        hasEmployeeRecord={hasEmployeeRecord}
       />
       <div className="md:ml-64 min-h-screen flex flex-col">
         <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 px-4 md:px-8 h-14 flex items-center gap-3 shadow-sm">

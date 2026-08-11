@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, Truck,
   FileText, Settings, LogOut, ChevronRight,
   TrendingUp, Receipt, Handshake, BarChart3, Sun, Moon, CreditCard, KeyRound, Package,
-  Bell, X, CheckCheck, AlertTriangle,
+  Bell, X, CheckCheck, AlertTriangle, Inbox,
 } from "lucide-react"
 import { AppLogo } from "@/components/ui/AppLogo"
 import { signOut } from "next-auth/react"
@@ -66,9 +66,9 @@ function getNavGroups(companyType: CompanyType) {
 }
 
 interface NotificationItem { id: string; type: string; title: string; body: string; createdAt: Date | string }
-interface Props { userRole: string; companyName: string; companyType: CompanyType; userName: string; companyLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void }
+interface Props { userRole: string; companyName: string; companyType: CompanyType; userName: string; companyLogo?: string | null; gradePermissions?: string[] | null; accessRoleName?: string | null; initialNotifications?: NotificationItem[]; mobileOpen?: boolean; onMobileClose?: () => void; hasEmployeeRecord?: boolean }
 
-export default function Sidebar({ userRole, companyName, companyType, userName, companyLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose }: Props) {
+export default function Sidebar({ userRole, companyName, companyType, userName, companyLogo, gradePermissions = null, accessRoleName = null, initialNotifications = [], mobileOpen = false, onMobileClose, hasEmployeeRecord = false }: Props) {
   const navGroups = getNavGroups(companyType)
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
@@ -136,6 +136,21 @@ export default function Sidebar({ userRole, companyName, companyType, userName, 
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+          {hasEmployeeRecord && (
+            <div>
+              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Personnel</p>
+              <div className="space-y-0.5">
+                <Link href="/self-service" onClick={onMobileClose} className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150",
+                  pathname.startsWith("/self-service") ? "bg-primary/10 text-primary font-medium" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}>
+                  <Inbox className={cn("h-4 w-4 shrink-0", pathname.startsWith("/self-service") && "text-primary")} />
+                  <span className="flex-1">Mon espace</span>
+                  {pathname.startsWith("/self-service") && <ChevronRight className="h-3 w-3 opacity-50" />}
+                </Link>
+              </div>
+            </div>
+          )}
           {navGroups.map(group => {
             const items = group.items.filter(i => {
               if (userRole === "OWNER") return true

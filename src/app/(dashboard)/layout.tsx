@@ -30,11 +30,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     checkAndCreateDocumentExpiryNotifications(user.company.id).catch(() => {})
   }
 
-  const notifications = await prisma.notification.findMany({
-    where: { companyId: user.company.id, isRead: false },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  })
+  const [notifications, employeeRecord] = await Promise.all([
+    prisma.notification.findMany({
+      where: { companyId: user.company.id, isRead: false },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.employee.findUnique({ where: { userId: user.id }, select: { id: true } }),
+  ])
 
   return (
     <DashboardShell
@@ -46,6 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       gradePermissions={pagePermissions}
       accessRoleName={accessRoleName}
       initialNotifications={notifications.map(n => ({ ...n, createdAt: n.createdAt.toISOString() }))}
+      hasEmployeeRecord={!!employeeRecord}
     >
       {children}
     </DashboardShell>
