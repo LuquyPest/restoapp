@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search, Building2, Calendar, ArrowUpDown, ClipboardList } from "lucide-react"
+import { Search, Building2, Calendar, ArrowUpDown, ClipboardList, Download, FileDown } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import BarChart from "@/components/ui/BarChart"
+import { downloadCSV } from "@/lib/csv-export"
+import { downloadDeclarationReceipt } from "@/lib/declaration-receipt"
 
 interface Declaration {
   id: string; companyId: string; companyName: string; currency: string; weekNumber: number; year: number
@@ -95,6 +97,14 @@ export default function AuthorityDeclarationsClient({ declarations, isIRS }: Pro
     </TableHead>
   )
 
+  function exportCSV() {
+    downloadCSV(
+      `declarations-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Entreprise", "Semaine", "Année", "CA", "Charges déductibles", "Charges non déductibles", "Bénéfice net", "Impôt", "Déclarée le"],
+      filtered.map(d => [d.companyName, d.weekNumber, d.year, d.revenue, d.chargesDeductible, d.chargesNonDeductible, d.netProfit, d.taxes, formatDate(d.declaredAt)])
+    )
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-3">
@@ -102,7 +112,10 @@ export default function AuthorityDeclarationsClient({ declarations, isIRS }: Pro
           <h1 className="text-2xl font-bold tracking-tight">Déclarations d'impôt</h1>
           <p className="text-sm text-muted-foreground mt-1">{declarations.length} déclaration{declarations.length !== 1 ? "s" : ""} reçue{declarations.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button variant="outline" asChild><Link href="/authority/companies"><ClipboardList className="h-4 w-4" /> Registre des entreprises</Link></Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV} disabled={filtered.length === 0}><FileDown className="h-4 w-4" /> Exporter CSV</Button>
+          <Button variant="outline" asChild><Link href="/authority/companies"><ClipboardList className="h-4 w-4" /> Registre des entreprises</Link></Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -170,11 +183,12 @@ export default function AuthorityDeclarationsClient({ declarations, isIRS }: Pro
                 <TableHead>Bénéfice net</TableHead>
                 <SortHead label="Impôt" k="taxes" />
                 <SortHead label="Déclarée le" k="declaredAt" />
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Aucune déclaration</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">Aucune déclaration</TableCell></TableRow>
               ) : filtered.map(d => (
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">
@@ -188,6 +202,11 @@ export default function AuthorityDeclarationsClient({ declarations, isIRS }: Pro
                   <TableCell>{formatCurrency(d.netProfit, d.currency)}</TableCell>
                   <TableCell className="font-semibold text-primary">{formatCurrency(d.taxes, d.currency)}</TableCell>
                   <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{formatDate(d.declaredAt)}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Télécharger le reçu" onClick={() => downloadDeclarationReceipt(d)}>
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
     companyName: company.name,
     currency: company.currency,
     alreadyDeclared: !!declaration,
+    declaration,
   })
 }
 

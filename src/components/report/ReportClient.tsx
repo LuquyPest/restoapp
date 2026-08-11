@@ -1,7 +1,8 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Download, Loader2, Landmark, CheckCircle2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Loader2, Landmark, CheckCircle2, FileDown } from "lucide-react"
+import { downloadDeclarationReceipt } from "@/lib/declaration-receipt"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -58,7 +59,7 @@ export default function ReportClient({ currency, bonusRate: defaultBonus, divide
       const res = await fetch("/api/report/declare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week, year }) })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error ?? "Erreur")
-      setData((prev: any) => prev ? { ...prev, alreadyDeclared: true } : prev)
+      setData((prev: any) => prev ? { ...prev, alreadyDeclared: true, declaration: d } : prev)
     } catch (e: any) { setDeclareError(e.message) }
     finally { setDeclaring(false) }
   }
@@ -322,6 +323,20 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
             {declaring ? <Loader2 className="h-4 w-4 animate-spin" /> : data?.alreadyDeclared ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Landmark className="h-4 w-4" />}
             {declaring ? "Déclaration..." : data?.alreadyDeclared ? "Déjà déclarée" : "Déclarer impôt"}
           </Button>
+          {data?.alreadyDeclared && data?.declaration && (
+            <Button
+              variant="outline"
+              onClick={() => downloadDeclarationReceipt({
+                companyName: data.companyName, currency: data.currency,
+                weekNumber: data.declaration.weekNumber, year: data.declaration.year,
+                revenue: data.declaration.revenue, chargesDeductible: data.declaration.chargesDeductible,
+                chargesNonDeductible: data.declaration.chargesNonDeductible, netProfit: data.declaration.netProfit,
+                taxes: data.declaration.taxes, declaredAt: data.declaration.declaredAt, mairieZone: data.declaration.mairieZone,
+              })}
+            >
+              <FileDown className="h-4 w-4" /> Reçu de déclaration
+            </Button>
+          )}
           <Button onClick={saveAndDownload} disabled={downloading || !data} variant="outline">
             {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {downloading ? "Génération..." : "Enregistrer & Télécharger"}
