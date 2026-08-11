@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { formatDate } from "@/lib/utils"
 
 export async function upsertNotification(params: {
   companyId: string
@@ -12,6 +13,26 @@ export async function upsertNotification(params: {
     create: { companyId: params.companyId, type: params.type, entityId: params.entityId, title: params.title, body: params.body },
     update: { isRead: false, title: params.title, body: params.body, createdAt: new Date() },
   })
+}
+
+export async function checkAndCreateDocumentExpiryNotifications(companyId: string) {
+  const now = new Date()
+  const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const expiring = await prisma.employeeDocument.findMany({
+    where: { companyId, expiresAt: { not: null, lte: soon } },
+    include: { employee: true },
+  })
+  await Promise.all(
+    expiring.map(doc =>
+      upsertNotification({
+        companyId,
+        type: "DOCUMENT_EXPIRING",
+        entityId: doc.id,
+        title: "Document bientôt expiré",
+        body: `${doc.title} — ${doc.employee.firstName} ${doc.employee.lastName} · expire le ${formatDate(doc.expiresAt!)}`,
+      })
+    )
+  )
 }
 
 export async function checkAndCreateInvoiceNotifications(companyId: string) {

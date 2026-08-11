@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { checkAndCreateInvoiceNotifications } from "@/lib/notifications"
+import { checkAndCreateInvoiceNotifications, checkAndCreateDocumentExpiryNotifications } from "@/lib/notifications"
 import DashboardShell from "@/components/layout/DashboardShell"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (user.role === "OWNER" || user.role === "MANAGER") {
     checkAndCreateInvoiceNotifications(user.company.id).catch(() => {})
+    checkAndCreateDocumentExpiryNotifications(user.company.id).catch(() => {})
   }
 
   const notifications = await prisma.notification.findMany({
