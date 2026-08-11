@@ -38,6 +38,7 @@ export default async function AuthorityCompanyDetailPage({ params }: { params: P
     <AuthorityCompanyDetailClient
       company={{ id: company.id, name: company.name, type: company.type, currency: company.currency, mairieZone: company.mairieZone }}
       declarations={declarations as any}
+      canSend={!session.user.authorityReadOnly}
     />
   )
 }

@@ -15,6 +15,7 @@ export default async function ReportPage() {
       currency={company?.currency ?? "$"}
       bonusRate={(company as any)?.bonusRate ?? 30}
       dividendRate={(company as any)?.dividendRate ?? 45}
+      mairieZone={company?.mairieZone ?? null}
     />
   )
 }

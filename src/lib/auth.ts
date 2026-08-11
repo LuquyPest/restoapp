@@ -91,6 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           role: user.role,
           companyId: user.companyId,
+          authorityReadOnly: user.authorityReadOnly,
         }
       },
     }),
@@ -100,6 +101,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.role = (user as any).role
         token.companyId = (user as any).companyId
+        token.authorityReadOnly = (user as any).authorityReadOnly
       }
       return token
     },
@@ -108,6 +110,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.sub as string
         session.user.role = token.role as string
         session.user.companyId = token.companyId as string
+        session.user.authorityReadOnly = token.authorityReadOnly as boolean
       }
       return session
     },

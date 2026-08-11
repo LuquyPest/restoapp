@@ -1,18 +1,26 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Download, Loader2, Landmark, CheckCircle2, FileDown } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Loader2, Landmark, CheckCircle2, FileDown, MessageSquare } from "lucide-react"
 import { downloadDeclarationReceipt } from "@/lib/declaration-receipt"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import BarChart from "@/components/ui/BarChart"
+import AuthorityChatTab from "@/components/authority/AuthorityChatTab"
+import { AUTHORITY_ROLE_LABELS, type AuthorityRole } from "@/lib/authority"
 
 
-interface Props { currency: string; bonusRate: number; dividendRate: number }
+interface Props { currency: string; bonusRate: number; dividendRate: number; mairieZone: "NORD" | "SUD" | null }
 
-export default function ReportClient({ currency, bonusRate: defaultBonus, dividendRate: defaultDividend }: Props) {
+export default function ReportClient({ currency, bonusRate: defaultBonus, dividendRate: defaultDividend, mairieZone }: Props) {
+  const searchParams = useSearchParams()
+  const [view, setView] = useState<"bilan" | "messages">(searchParams.get("tab") === "messages" ? "messages" : "bilan")
+  const mairieRole: AuthorityRole | null = mairieZone === "NORD" ? "MAIRIE_NORD" : mairieZone === "SUD" ? "MAIRIE_SUD" : null
+  const [chatRole, setChatRole] = useState<AuthorityRole>((searchParams.get("authority") as AuthorityRole) || "IRS")
   const now = new Date()
   const [week, setWeek] = useState(getISOWeek(now))
   const [year, setYear] = useState(now.getFullYear())
@@ -345,6 +353,39 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
       </div>
       {declareError && <p className="text-sm text-destructive -mt-3">{declareError}</p>}
 
+      <div className="flex bg-muted rounded-lg p-1 gap-1 self-start w-fit">
+        {(["bilan", "messages"] as const).map(v => (
+          <button key={v} onClick={() => setView(v)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            {v === "messages" && <MessageSquare className="h-3.5 w-3.5" />}
+            {v === "bilan" ? "Bilan" : "Messages autorités"}
+          </button>
+        ))}
+      </div>
+
+      {view === "messages" && (
+        <div className="space-y-3 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <Select value={chatRole} onValueChange={v => setChatRole(v as AuthorityRole)}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="IRS">{AUTHORITY_ROLE_LABELS.IRS}</SelectItem>
+                {mairieRole && <SelectItem value={mairieRole}>{AUTHORITY_ROLE_LABELS[mairieRole]}</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+          <AuthorityChatTab
+            messagesUrl={`/api/authority-messages?role=${chatRole}`}
+            sendUrl="/api/authority-messages"
+            readUrl="/api/authority-messages/read"
+            sendExtra={{ role: chatRole }}
+            viewerIsAuthority={false}
+            canSend
+          />
+        </div>
+      )}
+
+      {view === "bilan" && (
+      <>
       {/* Week nav */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
@@ -493,6 +534,8 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
           )}
         </div>
       ) : null}
+      </>
+      )}
     </div>
   )
 }

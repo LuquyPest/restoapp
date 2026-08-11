@@ -9,6 +9,7 @@ declare module "next-auth" {
       name?: string | null
       role: string
       companyId: string
+      authorityReadOnly?: boolean
     }
   }
 }
@@ -17,5 +18,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: string
     companyId?: string
+    authorityReadOnly?: boolean
   }
 }

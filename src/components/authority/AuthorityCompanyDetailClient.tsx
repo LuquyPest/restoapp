@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import BarChart from "@/components/ui/BarChart"
+import AuthorityChatTab from "./AuthorityChatTab"
 import { cn } from "@/lib/utils"
 
 interface Company { id: string; name: string; type: CompanyType; currency: string; mairieZone: "NORD" | "SUD" | null }
@@ -16,14 +17,15 @@ interface Declaration {
   id: string; weekNumber: number; year: number; revenue: number
   chargesDeductible: number; chargesNonDeductible: number; netProfit: number; taxes: number; declaredAt: string
 }
-interface Props { company: Company; declarations: Declaration[] }
+interface Props { company: Company; declarations: Declaration[]; canSend: boolean }
 
 const TABS = [
   { key: "declarations", label: "Déclarations" },
+  { key: "messages", label: "Messages" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
-export default function AuthorityCompanyDetailClient({ company, declarations }: Props) {
+export default function AuthorityCompanyDetailClient({ company, declarations, canSend }: Props) {
   const [tab, setTab] = useState<TabKey>("declarations")
   const fmt = (n: number) => formatCurrency(n, company.currency)
 
@@ -109,6 +111,16 @@ export default function AuthorityCompanyDetailClient({ company, declarations }: 
             </>
           )}
         </div>
+      )}
+
+      {tab === "messages" && (
+        <AuthorityChatTab
+          messagesUrl={`/api/authority-messages/${company.id}`}
+          sendUrl={`/api/authority-messages/${company.id}`}
+          readUrl={`/api/authority-messages/${company.id}/read`}
+          viewerIsAuthority
+          canSend={canSend}
+        />
       )}
     </div>
   )
