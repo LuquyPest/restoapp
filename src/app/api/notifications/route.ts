@@ -7,7 +7,10 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
   const notifications = await prisma.notification.findMany({
-    where: { companyId: session.user.companyId, isRead: false },
+    where: {
+      companyId: session.user.companyId, isRead: false,
+      OR: [{ recipientUserId: null }, { recipientUserId: session.user.id }],
+    },
     orderBy: { createdAt: "desc" },
   })
   return NextResponse.json(notifications)
@@ -19,7 +22,10 @@ export async function PATCH() {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
   await prisma.notification.updateMany({
-    where: { companyId: session.user.companyId, isRead: false },
+    where: {
+      companyId: session.user.companyId, isRead: false,
+      OR: [{ recipientUserId: null }, { recipientUserId: session.user.id }],
+    },
     data: { isRead: true },
   })
   return NextResponse.json({ ok: true })

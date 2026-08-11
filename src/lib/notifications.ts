@@ -7,12 +7,45 @@ export async function upsertNotification(params: {
   entityId: string
   title: string
   body: string
+  recipientUserId?: string
 }) {
   await prisma.notification.upsert({
     where: { companyId_type_entityId: { companyId: params.companyId, type: params.type, entityId: params.entityId } },
-    create: { companyId: params.companyId, type: params.type, entityId: params.entityId, title: params.title, body: params.body },
+    create: {
+      companyId: params.companyId, type: params.type, entityId: params.entityId,
+      title: params.title, body: params.body, recipientUserId: params.recipientUserId ?? null,
+    },
     update: { isRead: false, title: params.title, body: params.body, createdAt: new Date() },
   })
+}
+
+// Notification "individuelle" — même événement, un destinataire précis.
+// entityId incorpore le destinataire pour que chaque personne ait sa propre ligne
+// (la contrainte d'unicité ne porte que sur companyId/type/entityId).
+export async function upsertUserNotification(params: {
+  companyId: string
+  type: string
+  entitySlug: string
+  recipientUserId: string
+  title: string
+  body: string
+}) {
+  await upsertNotification({
+    companyId: params.companyId,
+    type: params.type,
+    entityId: `${params.entitySlug}:${params.recipientUserId}`,
+    title: params.title,
+    body: params.body,
+    recipientUserId: params.recipientUserId,
+  })
+}
+
+export async function getCompanyManagerIds(companyId: string): Promise<string[]> {
+  const managers = await prisma.user.findMany({
+    where: { companyId, role: { in: ["OWNER", "MANAGER"] } },
+    select: { id: true },
+  })
+  return managers.map(m => m.id)
 }
 
 export async function checkAndCreateDocumentExpiryNotifications(companyId: string) {

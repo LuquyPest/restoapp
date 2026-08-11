@@ -32,7 +32,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const [notifications, employeeRecord] = await Promise.all([
     prisma.notification.findMany({
-      where: { companyId: user.company.id, isRead: false },
+      where: {
+        companyId: user.company.id, isRead: false,
+        OR: [{ recipientUserId: null }, { recipientUserId: user.id }],
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
 import { logEmployeeEvent } from "@/lib/employee-events"
+import { upsertUserNotification } from "@/lib/notifications"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await logEmployeeEvent({
     companyId: session.user.companyId!, employeeId: id, type: "WARNING_ADDED",
     title: `Avertissement : ${warning.title}`, actorUserId: session.user.id,
+  })
+  await upsertUserNotification({
+    companyId: session.user.companyId!, type: "WARNING_ADDED", entitySlug: `warning:${warning.id}`, recipientUserId: employee.userId,
+    title: "Nouvel avertissement", body: warning.title,
   })
   return NextResponse.json(warning, { status: 201 })
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
 import { logEmployeeEvent } from "@/lib/employee-events"
+import { upsertUserNotification, getCompanyManagerIds } from "@/lib/notifications"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -74,6 +75,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     title: `${status === "PENDING" ? "Demande de congé" : status === "APPROVED" ? "Congé approuvé" : "Congé refusé"} — ${daysCount} j`,
     actorUserId: session.user.id,
   })
+
+  const companyId = session.user.companyId!
+  if (status === "PENDING") {
+    const managerIds = (await getCompanyManagerIds(companyId)).filter(m => m !== session.user.id)
+    await Promise.all(managerIds.map(managerId =>
+      upsertUserNotification({
+        companyId, type: "LEAVE_REQUESTED", entitySlug: `leave:${leave.id}`, recipientUserId: managerId,
+        title: "Nouvelle demande de congé",
+        body: `${employee.firstName} ${employee.lastName} — ${daysCount} j à partir du ${startDate.toLocaleDateString("fr-FR")}`,
+      })
+    ))
+  } else {
+    await upsertUserNotification({
+      companyId, type: "LEAVE_DECIDED", entitySlug: `leave:${leave.id}`, recipientUserId: employee.userId,
+      title: status === "APPROVED" ? "Congé approuvé" : "Congé refusé",
+      body: `${daysCount} j à partir du ${startDate.toLocaleDateString("fr-FR")}`,
+    })
+  }
 
   return NextResponse.json(leave, { status: 201 })
 }

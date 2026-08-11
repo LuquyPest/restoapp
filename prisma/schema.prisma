@@ -505,18 +505,20 @@ model LoyaltyCard {
 }
 
 model Notification {
-  id           String     @id @default(cuid())
-  companyId    String     @map("restaurantId")
-  type         String
-  title        String
-  body         String
-  entityId     String?
-  isRead       Boolean    @default(false)
-  createdAt    DateTime   @default(now())
-  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id              String     @id @default(cuid())
+  companyId       String     @map("restaurantId")
+  type            String
+  title           String
+  body            String
+  entityId        String?
+  recipientUserId String?
+  isRead          Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, type, entityId], map: "notifications_restaurantId_type_entityId_key")
   @@index([companyId, isRead], map: "notifications_restaurantId_isRead_idx")
+  @@index([companyId, recipientUserId, isRead])
   @@map("notifications")
 }
 

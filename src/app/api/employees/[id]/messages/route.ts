@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
+import { upsertUserNotification, getCompanyManagerIds } from "@/lib/notifications"
 import type { UserRole } from "@prisma/client"
 import { z } from "zod"
 
@@ -47,5 +48,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       readByManagerAt: !isSelf ? new Date() : null,
     },
   })
+
+  const companyId = session.user.companyId!
+  if (isSelf) {
+    const managerIds = await getCompanyManagerIds(companyId)
+    await Promise.all(managerIds.map(managerId =>
+      upsertUserNotification({
+        companyId, type: "NEW_MESSAGE", entitySlug: `msg:${id}`, recipientUserId: managerId,
+        title: "Nouveau message", body: `${employee.firstName} ${employee.lastName} vous a écrit`,
+      })
+    ))
+  } else {
+    await upsertUserNotification({
+      companyId, type: "NEW_MESSAGE", entitySlug: `msg:${id}`, recipientUserId: employee.userId,
+      title: "Nouveau message", body: `${session.user.name ?? "Votre manager"} vous a écrit`,
+    })
+  }
+
   return NextResponse.json(message, { status: 201 })
 }

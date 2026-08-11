@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEmployeeForAccess } from "@/lib/employee-access"
 import { logEmployeeEvent } from "@/lib/employee-events"
+import { upsertUserNotification } from "@/lib/notifications"
 import { z } from "zod"
 
 const decideSchema = z.object({
@@ -47,6 +48,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     actorUserId: session.user.id,
   })
 
+  const companyId = session.user.companyId!
+  await prisma.notification.updateMany({
+    where: { companyId, type: "LEAVE_REQUESTED", entityId: { startsWith: `leave:${leaveId}:` } },
+    data: { isRead: true },
+  })
+  await upsertUserNotification({
+    companyId, type: "LEAVE_DECIDED", entitySlug: `leave:${leaveId}`, recipientUserId: employee.userId,
+    title: parsed.data.status === "APPROVED" ? "Congé approuvé" : "Congé refusé",
+    body: `${leave.daysCount} j à partir du ${leave.startDate.toLocaleDateString("fr-FR")}`,
+  })
+
   return NextResponse.json(updated)
 }
 
@@ -65,5 +77,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   await prisma.employeeLeave.delete({ where: { id: leaveId } })
+  await prisma.notification.updateMany({
+    where: { companyId: session.user.companyId!, type: "LEAVE_REQUESTED", entityId: { startsWith: `leave:${leaveId}:` } },
+    data: { isRead: true },
+  })
   return NextResponse.json({ ok: true })
 }

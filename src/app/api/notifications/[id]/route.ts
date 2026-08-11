@@ -9,7 +9,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
   await prisma.notification.updateMany({
-    where: { id, companyId: session.user.companyId },
+    where: {
+      id, companyId: session.user.companyId,
+      OR: [{ recipientUserId: null }, { recipientUserId: session.user.id }],
+    },
     data: { isRead: true },
   })
   return new NextResponse(null, { status: 204 })

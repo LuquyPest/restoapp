@@ -18,5 +18,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
     data: isSelf ? { readByEmployeeAt: new Date() } : { readByManagerAt: new Date() },
   })
+
+  await prisma.notification.updateMany({
+    where: {
+      companyId: session.user.companyId!,
+      type: "NEW_MESSAGE",
+      entityId: `msg:${id}:${session.user.id}`,
+      recipientUserId: session.user.id,
+    },
+    data: { isRead: true },
+  })
+
   return NextResponse.json({ ok: true })
 }
