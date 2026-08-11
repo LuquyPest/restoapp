@@ -47,6 +47,7 @@ model Company {
   employeeLeaves       EmployeeLeave[]
   employeeEvents       EmployeeEvent[]
   taxDeclarations      TaxDeclaration[]
+  authorityMessages    AuthorityMessage[]
 
   @@map("restaurants")
 }
@@ -100,6 +101,7 @@ model User {
   updatedAt           DateTime    @updatedAt
   failedLoginAttempts Int         @default(0)
   lockedUntil         DateTime?
+  authorityReadOnly   Boolean     @default(false)
   accounts            Account[]
   employee            Employee?
   sessions            Session[]
@@ -496,11 +498,31 @@ model TaxDeclaration {
   mairieZone           MairieZone?
   declaredByUserId     String
   declaredAt           DateTime    @default(now())
+  reviewStatus         DeclarationReviewStatus @default(PENDING)
+  reviewNotes          String?     @db.Text
+  reviewedByUserId     String?
+  reviewedAt           DateTime?
   company              Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, weekNumber, year])
   @@index([mairieZone])
   @@map("tax_declarations")
+}
+
+model AuthorityMessage {
+  id                String   @id @default(cuid())
+  companyId         String
+  authorityRole     UserRole
+  authorUserId      String
+  fromAuthority     Boolean
+  body              String   @db.Text
+  createdAt         DateTime @default(now())
+  readByCompanyAt   DateTime?
+  readByAuthorityAt DateTime?
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, authorityRole, createdAt])
+  @@map("authority_messages")
 }
 
 model RateLimit {
@@ -605,6 +627,12 @@ enum UserRole {
 enum MairieZone {
   NORD
   SUD
+}
+
+enum DeclarationReviewStatus {
+  PENDING
+  REVIEWED
+  FLAGGED
 }
 
 enum OrderStatus {
