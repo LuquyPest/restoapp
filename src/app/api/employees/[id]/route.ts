@@ -9,6 +9,7 @@ const patchSchema = z.object({
   gradeId: z.string().cuid().optional(),
   phone: z.string().max(30).optional().nullable(),
   accountNumber: z.string().max(50).optional().nullable(),
+  paidLeaveBalance: z.number().min(0).max(365).optional().nullable(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(parsed.data.gradeId && { gradeId: parsed.data.gradeId }),
       ...(parsed.data.phone !== undefined && { phone: parsed.data.phone }),
       ...(parsed.data.accountNumber !== undefined && { accountNumber: parsed.data.accountNumber }),
+      ...(parsed.data.paidLeaveBalance !== undefined && { paidLeaveBalance: parsed.data.paidLeaveBalance }),
     },
   })
   return NextResponse.json(updated)

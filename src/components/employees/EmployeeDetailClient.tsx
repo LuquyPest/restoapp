@@ -15,11 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import EmployeeMessagesTab from "./EmployeeMessagesTab"
 import EmployeeDocumentsTab from "./EmployeeDocumentsTab"
+import EmployeeLeavesTab from "./EmployeeLeavesTab"
 
 interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
   id: string; firstName: string; lastName: string; phone: string | null
-  accountNumber: string | null; isActive: boolean; hiredAt: Date
+  accountNumber: string | null; isActive: boolean; hiredAt: Date; paidLeaveBalance: number | null
   grade: Grade; user: { id: string; email: string }
 }
 interface Props { employee: Employee; grades: Grade[]; canManage: boolean; viewerUserId: string }
@@ -28,13 +29,14 @@ const TABS = [
   { key: "info", label: "Informations" },
   { key: "messages", label: "Messages" },
   { key: "documents", label: "Documents" },
+  { key: "leaves", label: "Congés" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
 export default function EmployeeDetailClient({ employee, grades, canManage, viewerUserId }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>("info")
-  const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "" })
+  const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "", paidLeaveBalance: employee.paidLeaveBalance !== null ? String(employee.paidLeaveBalance) : "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
@@ -46,7 +48,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage, view
     try {
       const res = await fetch(`/api/employees/${employee.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gradeId: editForm.gradeId, phone: editForm.phone, accountNumber: editForm.accountNumber }),
+        body: JSON.stringify({
+          gradeId: editForm.gradeId, phone: editForm.phone, accountNumber: editForm.accountNumber,
+          paidLeaveBalance: editForm.paidLeaveBalance === "" ? null : parseFloat(editForm.paidLeaveBalance),
+        }),
       })
       if (!res.ok) throw new Error("Erreur")
       setSaved(true); setTimeout(() => setSaved(false), 2500)
@@ -144,6 +149,7 @@ export default function EmployeeDetailClient({ employee, grades, canManage, view
                 </div>
                 <div className="space-y-1.5"><Label>Téléphone</Label><Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>N° compte bancaire</Label><Input value={editForm.accountNumber} onChange={e => setEditForm({ ...editForm, accountNumber: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label>Solde congés payés (jours)</Label><Input type="number" min="0" step="0.5" placeholder="Non suivi" value={editForm.paidLeaveBalance} onChange={e => setEditForm({ ...editForm, paidLeaveBalance: e.target.value })} /></div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 {saved && <p className="text-sm text-emerald-500">✓ Enregistré</p>}
                 <Button className="w-full" onClick={saveInfo} disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer"}</Button>
@@ -159,6 +165,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage, view
 
       {tab === "documents" && (
         <EmployeeDocumentsTab employeeId={employee.id} canManage={canManage} />
+      )}
+
+      {tab === "leaves" && (
+        <EmployeeLeavesTab employeeId={employee.id} canManage={canManage} paidLeaveBalance={employee.paidLeaveBalance} />
       )}
 
       <Dialog open={resetModal} onOpenChange={v => !v && setResetModal(false)}>
