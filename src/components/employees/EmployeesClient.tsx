@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
-import { UserPlus, UserCheck, UserX, Pencil, Award, CreditCard, Trash2, Key, Phone, Settings, AlertTriangle } from "lucide-react"
+import Link from "next/link"
+import { UserPlus, UserCheck, UserX, Pencil, Award, CreditCard, Trash2, Key, Phone, Settings, AlertTriangle, FileUser } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -211,6 +212,7 @@ export default function EmployeesClient({ employees, grades, companyId }: Props)
                 <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => toggleActive(emp.id, emp.isActive)}>
                   {emp.isActive ? <><UserCheck className="h-3.5 w-3.5 text-emerald-500" /> Actif</> : <><UserX className="h-3.5 w-3.5 text-destructive" /> Inactif</>}
                 </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={`/employees/${emp.id}`}><FileUser className="h-3.5 w-3.5" /></Link></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setEditEmpForm({ gradeId: emp.grade.id, phone: emp.phone ?? "", accountNumber: emp.accountNumber ?? "" }); setError(""); setModal("editEmp") }}><Settings className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedEmp(emp); setNewPassword(""); setError(""); setModal("resetPwd") }}><Key className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setError(""); setEmpToDelete(emp) }}><Trash2 className="h-3.5 w-3.5" /></Button>
