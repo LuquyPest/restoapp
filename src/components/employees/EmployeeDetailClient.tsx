@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import EmployeeMessagesTab from "./EmployeeMessagesTab"
 
 interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
@@ -20,14 +21,15 @@ interface Employee {
   accountNumber: string | null; isActive: boolean; hiredAt: Date
   grade: Grade; user: { id: string; email: string }
 }
-interface Props { employee: Employee; grades: Grade[]; canManage: boolean }
+interface Props { employee: Employee; grades: Grade[]; canManage: boolean; viewerUserId: string }
 
 const TABS = [
   { key: "info", label: "Informations" },
+  { key: "messages", label: "Messages" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
-export default function EmployeeDetailClient({ employee, grades, canManage }: Props) {
+export default function EmployeeDetailClient({ employee, grades, canManage, viewerUserId }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>("info")
   const [editForm, setEditForm] = useState({ gradeId: employee.grade.id, phone: employee.phone ?? "", accountNumber: employee.accountNumber ?? "" })
@@ -147,6 +149,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage }: Pr
             </Card>
           )}
         </div>
+      )}
+
+      {tab === "messages" && (
+        <EmployeeMessagesTab employeeId={employee.id} viewerUserId={viewerUserId} />
       )}
 
       <Dialog open={resetModal} onOpenChange={v => !v && setResetModal(false)}>
