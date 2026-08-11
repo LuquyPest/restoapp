@@ -9,17 +9,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import BarChart from "@/components/ui/BarChart"
 
 interface Declaration {
   id: string; companyId: string; companyName: string; currency: string; weekNumber: number; year: number
   revenue: number; chargesDeductible: number; chargesNonDeductible: number
-  netProfit: number; taxes: number; declaredAt: string
+  netProfit: number; taxes: number; declaredAt: string; mairieZone: "NORD" | "SUD" | null
 }
-interface Props { declarations: Declaration[] }
+interface Props { declarations: Declaration[]; isIRS: boolean }
 
 type SortKey = "companyName" | "week" | "revenue" | "taxes" | "declaredAt"
 
-export default function AuthorityDeclarationsClient({ declarations }: Props) {
+export default function AuthorityDeclarationsClient({ declarations, isIRS }: Props) {
   const [search, setSearch] = useState("")
   const [year, setYear] = useState("all")
   const [minTaxes, setMinTaxes] = useState("")
@@ -58,6 +59,34 @@ export default function AuthorityDeclarationsClient({ declarations }: Props) {
 
   const totalTaxes = filtered.reduce((s, d) => s + d.taxes, 0)
 
+  const weeklyTrend = useMemo(() => {
+    const map = new Map<string, { key: number; label: string; value: number }>()
+    for (const d of declarations) {
+      const key = d.year * 100 + d.weekNumber
+      const label = `S${String(d.weekNumber).padStart(2, "0")}`
+      const ex = map.get(String(key)) ?? { key, label, value: 0 }
+      ex.value += d.taxes
+      map.set(String(key), ex)
+    }
+    return Array.from(map.values()).sort((a, b) => a.key - b.key).slice(-12)
+  }, [declarations])
+
+  const zoneTrend = useMemo(() => {
+    if (!isIRS) return null
+    function trendFor(zone: "NORD" | "SUD") {
+      const map = new Map<string, { key: number; label: string; value: number }>()
+      for (const d of declarations.filter(x => x.mairieZone === zone)) {
+        const key = d.year * 100 + d.weekNumber
+        const label = `S${String(d.weekNumber).padStart(2, "0")}`
+        const ex = map.get(String(key)) ?? { key, label, value: 0 }
+        ex.value += d.taxes
+        map.set(String(key), ex)
+      }
+      return Array.from(map.values()).sort((a, b) => a.key - b.key).slice(-12)
+    }
+    return { nord: trendFor("NORD"), sud: trendFor("SUD") }
+  }, [declarations, isIRS])
+
   const SortHead = ({ label, k }: { label: string; k: SortKey }) => (
     <TableHead>
       <button onClick={() => toggleSort(k)} className="flex items-center gap-1 hover:text-foreground transition-colors">
@@ -86,6 +115,28 @@ export default function AuthorityDeclarationsClient({ declarations }: Props) {
           <p className="text-3xl font-bold">{formatCurrency(totalTaxes, filtered[0]?.currency ?? "$")}</p>
         </CardContent></Card>
       </div>
+
+      {weeklyTrend.length > 0 && (
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Évolution de l'impôt déclaré (toutes entreprises)</p>
+            <BarChart data={weeklyTrend} currency={declarations[0]?.currency ?? "$"} />
+          </CardContent>
+        </Card>
+      )}
+
+      {zoneTrend && (zoneTrend.nord.length > 0 || zoneTrend.sud.length > 0) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Card><CardContent className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Mairie Nord</p>
+            <BarChart data={zoneTrend.nord} currency={declarations[0]?.currency ?? "$"} color="hsl(210 80% 60%)" />
+          </CardContent></Card>
+          <Card><CardContent className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Mairie Sud</p>
+            <BarChart data={zoneTrend.sud} currency={declarations[0]?.currency ?? "$"} color="hsl(25 80% 60%)" />
+          </CardContent></Card>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="relative max-w-sm flex-1 min-w-[200px]">

@@ -17,5 +17,5 @@ export default async function AuthorityPage() {
     orderBy: [{ year: "desc" }, { weekNumber: "desc" }],
   })
 
-  return <AuthorityDeclarationsClient declarations={declarations as any} />
+  return <AuthorityDeclarationsClient declarations={declarations as any} isIRS={role === "IRS"} />
 }
