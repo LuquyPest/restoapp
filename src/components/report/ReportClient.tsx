@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { formatCurrency, getISOWeek, getISOWeeksInYear } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Loader2, Landmark, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,8 @@ export default function ReportClient({ currency, bonusRate: defaultBonus, divide
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [declaring, setDeclaring] = useState(false)
+  const [declareError, setDeclareError] = useState("")
   const fmt = (n: number) => formatCurrency(n, currency)
   const pct = (n: number) => `${n?.toFixed(2) ?? 0}%`
 
@@ -46,6 +48,19 @@ export default function ReportClient({ currency, bonusRate: defaultBonus, divide
     // Generate HTML
     generateHTML()
     setDownloading(false)
+  }
+
+  async function declareTax() {
+    if (!data || data.alreadyDeclared) return
+    if (!confirm(`Déclarer l'impôt de la semaine S${String(week).padStart(2,"0")} ${year} ? Cette action est définitive, les chiffres seront figés.`)) return
+    setDeclaring(true); setDeclareError("")
+    try {
+      const res = await fetch("/api/report/declare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week, year }) })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error ?? "Erreur")
+      setData((prev: any) => prev ? { ...prev, alreadyDeclared: true } : prev)
+    } catch (e: any) { setDeclareError(e.message) }
+    finally { setDeclaring(false) }
   }
 
   function generateHTML() {
@@ -298,11 +313,22 @@ ${(data.allOrders ?? []).slice(0, 100).map((o: any) => `<tr>
           <h1 className="text-2xl font-bold tracking-tight">Bilan hebdomadaire</h1>
           <p className="text-sm text-muted-foreground mt-1">Résumé financier par semaine</p>
         </div>
-        <Button onClick={saveAndDownload} disabled={downloading || !data} className="shrink-0">
-          {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          {downloading ? "Génération..." : "Enregistrer & Télécharger"}
-        </Button>
+        <div className="flex gap-2 shrink-0 flex-wrap">
+          <Button
+            variant={data?.alreadyDeclared ? "outline" : "default"}
+            onClick={declareTax}
+            disabled={declaring || !data || data?.alreadyDeclared}
+          >
+            {declaring ? <Loader2 className="h-4 w-4 animate-spin" /> : data?.alreadyDeclared ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Landmark className="h-4 w-4" />}
+            {declaring ? "Déclaration..." : data?.alreadyDeclared ? "Déjà déclarée" : "Déclarer impôt"}
+          </Button>
+          <Button onClick={saveAndDownload} disabled={downloading || !data} variant="outline">
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {downloading ? "Génération..." : "Enregistrer & Télécharger"}
+          </Button>
+        </div>
       </div>
+      {declareError && <p className="text-sm text-destructive -mt-3">{declareError}</p>}
 
       {/* Week nav */}
       <div className="flex items-center gap-2 flex-wrap">

@@ -2,11 +2,13 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { checkAndCreateInvoiceNotifications, checkAndCreateDocumentExpiryNotifications } from "@/lib/notifications"
+import { isAuthorityRole } from "@/lib/authority"
 import DashboardShell from "@/components/layout/DashboardShell"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect("/login")
+  if (isAuthorityRole(session.user.role)) redirect("/authority")
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { company: true } })
   if (!user?.company) redirect("/login")
 

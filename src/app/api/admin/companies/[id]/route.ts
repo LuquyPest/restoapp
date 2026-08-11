@@ -42,6 +42,7 @@ const taxBracketSchema = z.object({ min: z.number().min(0), max: z.number().min(
 const patchSchema = z.object({
   name: z.string().min(1).max(50).optional(),
   type: z.enum(COMPANY_TYPES).optional(),
+  mairieZone: z.enum(["NORD", "SUD"]).nullable().optional(),
   currency: z.string().min(1).max(5).optional(),
   taxType: z.enum(["TYPE1", "TYPE2", "TYPE3", "CUSTOM"]).optional(),
   taxBrackets: z.array(taxBracketSchema).optional().nullable(),
@@ -61,6 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data: {
       ...(parsed.data.name && { name: parsed.data.name }),
       ...(parsed.data.type && { type: parsed.data.type }),
+      ...(parsed.data.mairieZone !== undefined && { mairieZone: parsed.data.mairieZone }),
       ...(parsed.data.currency && { currency: parsed.data.currency }),
       ...(parsed.data.taxType && { taxType: parsed.data.taxType }),
       ...(parsed.data.taxBrackets !== undefined && {

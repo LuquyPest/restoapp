@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, ClipboardList, Pencil, X } from "lucide-react"
+import { Plus, Trash2, LogOut, Store, Users, ShoppingBag, Copy, Check, ClipboardList, Pencil, X, Landmark } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,10 +17,12 @@ import { COMPANY_TYPES, COMPANY_TYPE_LABELS, type CompanyType } from "@/lib/busi
 interface TaxBracket { min: number; max?: number; rate: number }
 interface CompanyUser { email: string; name: string | null }
 interface Company {
-  id: string; name: string; type: CompanyType; currency: string; taxType: string; taxBrackets: string | null; createdAt: Date
+  id: string; name: string; type: CompanyType; mairieZone: "NORD" | "SUD" | null; currency: string; taxType: string; taxBrackets: string | null; createdAt: Date
   _count: { employees: number; orders: number }
   users: CompanyUser[]
 }
+
+const MAIRIE_LABELS: Record<"NORD" | "SUD", string> = { NORD: "Mairie Nord", SUD: "Mairie Sud" }
 
 function CompanyTypeSelector({ value, onChange }: { value: CompanyType; onChange: (v: CompanyType) => void }) {
   return (
@@ -170,6 +172,14 @@ export default function AdminClient({ companies: initial }: { companies: Company
     if (listRes.ok) setCompanies(await listRes.json())
   }
 
+  async function updateMairie(id: string, mairieZone: "NORD" | "SUD" | null) {
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, mairieZone } : c))
+    await fetch(`/api/admin/companies/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mairieZone }),
+    })
+  }
+
   async function deleteCompany() {
     if (!deleteId) return
     setLoading(true)
@@ -205,6 +215,9 @@ export default function AdminClient({ companies: initial }: { companies: Company
           <Badge variant="destructive" className="text-[10px]">SUPER ADMIN</Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/admin/authorities")}>
+            <Landmark className="h-4 w-4" /> Autorités
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => router.push("/admin/logs")}>
             <ClipboardList className="h-4 w-4" /> Logs
           </Button>
@@ -243,6 +256,7 @@ export default function AdminClient({ companies: initial }: { companies: Company
                 <TableRow>
                   <TableHead>Établissement</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Mairie</TableHead>
                   <TableHead>Patron</TableHead>
                   <TableHead>Imposition</TableHead>
                   <TableHead>Employés</TableHead>
@@ -253,7 +267,7 @@ export default function AdminClient({ companies: initial }: { companies: Company
               </TableHeader>
               <TableBody>
                 {companies.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">Aucun établissement</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">Aucun établissement</TableCell></TableRow>
                 ) : companies.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>
@@ -269,6 +283,16 @@ export default function AdminClient({ companies: initial }: { companies: Company
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-[10px]">{COMPANY_TYPE_LABELS[r.type]}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select value={r.mairieZone ?? "none"} onValueChange={v => updateMairie(r.id, v === "none" ? null : v as "NORD" | "SUD")}>
+                        <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucune</SelectItem>
+                          <SelectItem value="NORD">Mairie Nord</SelectItem>
+                          <SelectItem value="SUD">Mairie Sud</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       {r.users[0] ? (

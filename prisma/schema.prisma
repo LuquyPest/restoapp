@@ -13,6 +13,7 @@ model Company {
   name                 String
   logo                 String?
   type                 CompanyType    @default(RESTO_BAR)
+  mairieZone           MairieZone?
   currency             String         @default("$")
   taxRate              Float          @default(11.9)
   bonusRate            Float          @default(10)
@@ -45,6 +46,7 @@ model Company {
   employeeWarnings     EmployeeWarning[]
   employeeLeaves       EmployeeLeave[]
   employeeEvents       EmployeeEvent[]
+  taxDeclarations      TaxDeclaration[]
 
   @@map("restaurants")
 }
@@ -476,6 +478,31 @@ model WeeklyReport {
   @@map("weekly_reports")
 }
 
+model TaxDeclaration {
+  id                   String      @id @default(cuid())
+  companyId            String
+  companyName          String
+  currency             String      @default("$")
+  weekNumber           Int
+  year                 Int
+  revenue              Float
+  costRevenue          Float
+  salaries             Float
+  chargesDeductible    Float
+  chargesNonDeductible Float
+  grossProfit          Float
+  taxes                Float
+  netProfit            Float
+  mairieZone           MairieZone?
+  declaredByUserId     String
+  declaredAt           DateTime    @default(now())
+  company              Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, weekNumber, year])
+  @@index([mairieZone])
+  @@map("tax_declarations")
+}
+
 model RateLimit {
   key     String   @id
   count   Int      @default(1)
@@ -570,6 +597,14 @@ enum UserRole {
   OWNER
   MANAGER
   EMPLOYEE
+  IRS
+  MAIRIE_NORD
+  MAIRIE_SUD
+}
+
+enum MairieZone {
+  NORD
+  SUD
 }
 
 enum OrderStatus {

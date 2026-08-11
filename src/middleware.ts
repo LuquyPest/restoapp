@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { jwtVerify } from "jose"
 import { NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { isAuthorityRole } from "@/lib/authority"
 
 if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET manquant")
 const ADMIN_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET)
@@ -16,6 +17,8 @@ export default auth(async (req) => {
   const isAuthPage = nextUrl.pathname.startsWith("/login")
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth")
   const isApiAdmin = nextUrl.pathname.startsWith("/api/admin")
+  const isAuthorityPage = nextUrl.pathname.startsWith("/authority")
+  const userRole = session?.user?.role as string | undefined
 
   // CSRF : rejeter les mutations sans Origin ou avec une origine non autorisée
   if (["POST", "PATCH", "DELETE", "PUT"].includes(method) && !isApiAuth) {
@@ -84,7 +87,14 @@ export default auth(async (req) => {
   }
 
   if (isLoggedIn && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", nextUrl))
+    const dest = userRole && isAuthorityRole(userRole) ? "/authority" : "/dashboard"
+    return NextResponse.redirect(new URL(dest, nextUrl))
+  }
+
+  // Espace autorité (IRS / Mairies) : réservé aux rôles dédiés
+  if (isAuthorityPage) {
+    if (!isLoggedIn) return NextResponse.redirect(new URL("/login", nextUrl))
+    if (!userRole || !isAuthorityRole(userRole)) return NextResponse.redirect(new URL("/login", nextUrl))
   }
 
   return NextResponse.next()

@@ -5,59 +5,8 @@ import { checkRateLimit } from "@/lib/rate-limit"
 import { getIp } from "@/lib/logger"
 import { z } from "zod"
 import { checkApiPageAccess } from "@/lib/page-access"
-import { getWeekBounds, calculateTax, formatDate } from "@/lib/utils"
-
-function computeBilan(
-  orders: any[], charges: any[], employees: any[],
-  bonusRate: number, dividendRate: number,
-  taxConfig?: { taxType?: string | null; taxBrackets?: string | null } | null
-) {
-  const revenue = orders.reduce((s: number, o: any) => s + o.total, 0)
-  const costRevenue = orders.reduce((s: number, o: any) => s + (o.lines ?? []).reduce((ls: number, l: any) => ls + l.costPrice * l.quantity, 0), 0)
-  const partnerRevenue = orders.filter((o: any) => o.partnerId).reduce((s: number, o: any) => s + o.total, 0)
-  const clientRevenue = revenue - partnerRevenue
-
-  const employeeStats = employees.map((emp: any) => {
-    const empOrders = orders.filter((o: any) => o.employeeId === emp.id)
-    const empRevenue = empOrders.reduce((s: number, o: any) => s + o.total, 0)
-    const empCost = empOrders.reduce((s: number, o: any) => s + (o.lines ?? []).reduce((ls: number, l: any) => ls + l.costPrice * l.quantity, 0), 0)
-    const empNetRevenue = empRevenue - empCost
-    const salary = empRevenue * (emp.grade.salaryPercent / 100)
-    return {
-      employeeId: emp.id, firstName: emp.firstName, lastName: emp.lastName,
-      grade: emp.grade.name, salaryPercent: emp.grade.salaryPercent,
-      dividendPercent: emp.grade.dividendPercent ?? 0,
-      accountNumber: emp.accountNumber,
-      revenue: empRevenue, costRevenue: empCost, netRevenue: empNetRevenue, salary,
-    }
-  })
-
-  const totalSalaries = employeeStats.reduce((s: number, e: any) => s + e.salary, 0)
-  // Only include charges for this week (non-global filtered by caller, global always included)
-  const chargesDeductible = charges.filter((c: any) => c.type === "DEDUCTIBLE").reduce((s: number, c: any) => s + c.amount, 0)
-  const chargesNonDeductible = charges.filter((c: any) => c.type === "NON_DEDUCTIBLE").reduce((s: number, c: any) => s + c.amount, 0)
-
-  const afterSalaries = revenue - totalSalaries
-  const grossProfit = afterSalaries - chargesDeductible
-  const taxes = grossProfit > 0 ? calculateTax(grossProfit, taxConfig) : 0
-  const netProfit = grossProfit - taxes
-  const bonusTotal = netProfit > 0 ? netProfit * (bonusRate / 100) : 0
-  const dividendTotal = netProfit > 0 ? netProfit * (dividendRate / 100) : 0
-  const treasury = netProfit - bonusTotal - dividendTotal - chargesNonDeductible
-  const finalProfit = treasury
-
-  const employeeStatsWithDividend = employeeStats.map((emp: any) => ({
-    ...emp,
-    dividend: dividendTotal * ((emp.dividendPercent ?? 0) / 100),
-  }))
-
-  return {
-    revenue, costRevenue, totalSalaries, chargesDeductible, chargesNonDeductible,
-    afterSalaries, grossProfit, taxes, netProfit, bonusTotal,
-    afterBonus: netProfit, dividendTotal, treasury, finalProfit,
-    clientRevenue, partnerRevenue, employeeStats: employeeStatsWithDividend,
-  }
-}
+import { getWeekBounds, formatDate } from "@/lib/utils"
+import { computeBilan, saveWeeklyReport } from "@/lib/bilan"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -95,6 +44,10 @@ export async function GET(req: NextRequest) {
   ])
 
   if (!company) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
+
+  const declaration = await prisma.taxDeclaration.findUnique({
+    where: { companyId_weekNumber_year: { companyId, weekNumber: week, year } },
+  })
 
   // Filter charges: global (no week) OR matching this week
   const charges = allCharges.filter((c: any) =>
@@ -151,6 +104,7 @@ export async function GET(req: NextRequest) {
     charges: charges.map((c: any) => ({ name: c.name, amount: c.amount, type: c.type, isActive: c.isActive })),
     companyName: company.name,
     currency: company.currency,
+    alreadyDeclared: !!declaration,
   })
 }
 
@@ -169,26 +123,11 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Données invalides" }, { status: 400 })
   const { week, year } = parsed.data
 
-  const [company, orders, allCharges, employees] = await Promise.all([
-    prisma.company.findUnique({ where: { id: companyId } }),
-    prisma.order.findMany({ where: { companyId, status: "CONFIRMED", weekNumber: week, year }, include: { lines: true } }),
-    prisma.charge.findMany({ where: { companyId, isActive: true, deletedAt: null } }),
-    prisma.employee.findMany({ where: { companyId, isActive: true }, include: { grade: true } }),
-  ])
-  if (!company) return NextResponse.json({ error: "Introuvable" }, { status: 404 })
-
-  const charges = allCharges.filter((c: any) =>
-    (!c.weekNumber && !c.year) || (c.weekNumber === week && c.year === year)
-  )
-
-  const bonusRate = company.bonusRate ?? 10
-  const dividendRate = company.dividendRate ?? 72.26
-  const b = computeBilan(orders, charges, employees, bonusRate, dividendRate)
-
-  const report = await prisma.weeklyReport.upsert({
-    where: { companyId_weekNumber_year: { companyId, weekNumber: week, year } },
-    create: { companyId, weekNumber: week, year, revenue: b.revenue, costRevenue: b.costRevenue, salaries: b.totalSalaries, chargesDeductible: b.chargesDeductible, chargesNonDeductible: b.chargesNonDeductible, grossProfit: b.grossProfit, taxes: b.taxes, netProfit: b.netProfit, bonusTotal: b.bonusTotal, dividendTotal: b.dividendTotal, treasury: b.treasury, partnerRevenue: b.partnerRevenue, clientRevenue: b.clientRevenue, savedDividend: b.dividendTotal, savedTreasury: b.treasury, taxDeclared: true },
-    update: { revenue: b.revenue, costRevenue: b.costRevenue, salaries: b.totalSalaries, chargesDeductible: b.chargesDeductible, chargesNonDeductible: b.chargesNonDeductible, grossProfit: b.grossProfit, taxes: b.taxes, netProfit: b.netProfit, bonusTotal: b.bonusTotal, dividendTotal: b.dividendTotal, treasury: b.treasury, partnerRevenue: b.partnerRevenue, clientRevenue: b.clientRevenue, savedDividend: b.dividendTotal, savedTreasury: b.treasury, taxDeclared: true },
-  })
+  let report
+  try {
+    ({ report } = await saveWeeklyReport(companyId!, week, year))
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message ?? "Erreur" }, { status: 404 })
+  }
   return NextResponse.json(report)
 }
