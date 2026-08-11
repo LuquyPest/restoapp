@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import EmployeeMessagesTab from "./EmployeeMessagesTab"
+import EmployeeDocumentsTab from "./EmployeeDocumentsTab"
 
 interface Grade { id: string; name: string; salaryPercent: number; dividendPercent: number }
 interface Employee {
@@ -26,6 +27,7 @@ interface Props { employee: Employee; grades: Grade[]; canManage: boolean; viewe
 const TABS = [
   { key: "info", label: "Informations" },
   { key: "messages", label: "Messages" },
+  { key: "documents", label: "Documents" },
 ] as const
 type TabKey = typeof TABS[number]["key"]
 
@@ -153,6 +155,10 @@ export default function EmployeeDetailClient({ employee, grades, canManage, view
 
       {tab === "messages" && (
         <EmployeeMessagesTab employeeId={employee.id} viewerUserId={viewerUserId} />
+      )}
+
+      {tab === "documents" && (
+        <EmployeeDocumentsTab employeeId={employee.id} canManage={canManage} />
       )}
 
       <Dialog open={resetModal} onOpenChange={v => !v && setResetModal(false)}>

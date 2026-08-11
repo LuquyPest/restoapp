@@ -30,6 +30,7 @@ const nextConfig = {
               "img-src 'self' data: https:",
               "font-src 'self'",
               "connect-src 'self'",
+              "frame-src 'self' https://docs.google.com https://drive.google.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },
